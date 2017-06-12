@@ -14,7 +14,7 @@
 #############################################################################
 
 #%module
-#% description: Load data from SOS server as a vector layer to GRASS GIS.
+#% description: Import data from SOS server as a vector layer to GRASS GIS.
 #% keyword: vector
 #% keyword: import
 #% keyword: SOS
@@ -48,12 +48,14 @@
 #% type: string
 #% description: The phenomena that are observed
 #% required: yes
+#% multiple: yes
 #%end
 #%option
 #% key: procedure
 #% type: string
 #% description: Who provide the observations
-#% required: yes
+#% required: no
+#% multiple: yes
 #%end
 #%option
 #% key: version
