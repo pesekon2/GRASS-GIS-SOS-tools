@@ -64,6 +64,16 @@
 #% options: 1.0.0, 2.0.0
 #% answer: 1.0.0
 #%end
+#%option
+#% key: username
+#% type: string
+#% description: Username with access to server
+#%end
+#%option
+#% key: password
+#% type: string
+#% description: Password according to username
+#%end
 
 
 import sys
