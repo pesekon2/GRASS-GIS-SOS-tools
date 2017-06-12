@@ -64,13 +64,35 @@
 #%end
 
 import sys
-from grass.script import parser
+from owslib.sos import SensorObservationService
+from grass.script import parser, run_command
+
+sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
+# TODO: Incorporate format conversions into OWSLib and don't use absolute path
+from xml2geojson import xml2geojson
+from json2geojson import json2geojson
 
 def cleanup():
     pass
 
 def main():
-    print("I'm running")
+    service = SensorObservationService(options['url'],
+                                       version = options['version'])
+
+    obs = service.get_observation(offerings = [options['offering']],
+                                  responseFormat = options['response_format'],
+                                  observedProperties = [options['observed_properties']])
+
+    if str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+        parsed_obs = xml2geojson(obs)
+    elif str(options['response_format']) == 'application/json':
+        parsed_obs = json2geojson(obs)
+
+    run_command('v.in.ogr',
+                input = parsed_obs,
+                output = options['output'],
+                flags = 'o',
+                overwrite = True)
 
     return 0
 
