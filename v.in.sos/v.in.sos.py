@@ -65,6 +65,7 @@
 #% answer: 1.0.0
 #%end
 
+
 import sys
 from owslib.sos import SensorObservationService
 from grass.script import parser, run_command
@@ -93,8 +94,7 @@ def main():
     run_command('v.in.ogr',
                 input = parsed_obs,
                 output = options['output'],
-                flags = 'o',
-                overwrite = True)
+                flags = 'o')
 
     return 0
 
