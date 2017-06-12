@@ -2,7 +2,7 @@ import xml.etree.ElementTree as etree
 import json
 
 
-def xml2json(xml_file):
+def xml2geojson(xml_file):
     tree = etree.ElementTree(etree.fromstring(xml_file))
     a = {"type": "FeatureCollection", "features": []}
 
