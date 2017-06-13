@@ -55,7 +55,6 @@
 #% type: string
 #% description: Who provide the observations
 #% required: no
-#% multiple: yes
 #%end
 #%option
 #% key: version
@@ -68,11 +67,13 @@
 #% key: username
 #% type: string
 #% description: Username with access to server
+#% guisection: User
 #%end
 #%option
 #% key: password
 #% type: string
 #% description: Password according to username
+#% guisection: User
 #%end
 
 
@@ -94,7 +95,10 @@ def main():
 
     obs = service.get_observation(offerings = [options['offering']],
                                   responseFormat = options['response_format'],
-                                  observedProperties = [options['observed_properties']])
+                                  observedProperties = [options['observed_properties']],
+                                  procedure=options['procedure'],
+                                  username = options['username'],
+                                  password = options['password'])
 
     if str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
         parsed_obs = xml2geojson(obs)
