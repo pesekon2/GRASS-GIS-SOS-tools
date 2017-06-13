@@ -25,10 +25,7 @@
 #% description: Base URL starting with 'http' and ending in '?'
 #% required: yes
 #%end
-#%option G_OPT_V_MAP
-#% key: output
-#% description: Name for output vector map
-#% required: yes
+#%option G_OPT_V_OUTPUT
 #%end
 #%option
 #% key: offering
