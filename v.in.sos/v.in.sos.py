@@ -19,6 +19,18 @@
 #% keyword: import
 #% keyword: SOS
 #%end
+#%flag
+#% key: v
+#% description: Print observed properties for given url and offering
+#%end
+#%flag
+#% key: o
+#% description: Print offerings for given url
+#%end
+#%flag
+#% key: p
+#% description: Print procedures for given url and offering
+#%end
 #%option
 #% key: url
 #% type: string
@@ -26,12 +38,13 @@
 #% required: yes
 #%end
 #%option G_OPT_V_OUTPUT
+#% required: no
 #%end
 #%option
 #% key: offering
 #% type: string
 #% description: A collection of sensor used to conveniently group them up
-#% required: yes
+#% required: no
 #%end
 #%option
 #% key: response_format
@@ -39,13 +52,13 @@
 #% options: text/xml;subtype="om/1.0.0", application/json
 #% description: Format of data output
 #% answer: text/xml;subtype="om/1.0.0"
-#% required: yes
+#% required: no
 #%end
 #%option
 #% key: observed_properties
 #% type: string
 #% description: The phenomena that are observed
-#% required: yes
+#% required: no
 #% multiple: yes
 #%end
 #%option
@@ -84,12 +97,55 @@ sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
 from xml2geojson import xml2geojson
 from json2geojson import json2geojson
 
+
+class FlagException(Exception):
+    def __init__(self, flag, parameter):
+        if sys.version >= (3, 0):
+            sys.tracebacklimit = None
+        else:
+            sys.tracebacklimit = 0
+
+        super(FlagException, self).__init__(
+            'You have to define parameter "%s" for using flag "%s"' % (
+                parameter, flag))
+
+
 def cleanup():
     pass
+
 
 def main():
     service = SensorObservationService(options['url'],
                                        version = options['version'])
+
+    printing = False
+
+    if flags['o'] is True:
+        print('\nSOS offerings:')
+        for offering in service.offerings:
+            print(offering.name)
+        printing = True
+
+    if flags['v'] is True:
+        if options['offering']:
+            print('\nObserved properties of %s offering:' % options['offering'])
+            for observed_property in service[options['offering']].observed_properties:
+                print(observed_property)
+        else:
+            raise FlagException('v', 'offering')
+        printing = True
+
+    if flags['p'] is True:
+        if options['offering']:
+            print('\nObserved procedures of %s offering:' % options['offering'])
+            for procedure in service[options['offering']].procedures:
+                print(procedure)
+        else:
+            raise FlagException('p', 'offering')
+        printing = True
+
+    if printing is True:
+        sys.exit(0)
 
     obs = service.get_observation(offerings = [options['offering']],
                                   responseFormat = options['response_format'],
