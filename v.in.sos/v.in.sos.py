@@ -36,6 +36,7 @@
 #%option
 #% key: response_format
 #% type: string
+#% options: text/xml;subtype="om/1.0.0", application/json
 #% description: Format of data output
 #% answer: text/xml;subtype="om/1.0.0"
 #% required: yes
@@ -97,7 +98,7 @@ def main():
                                   username = options['username'],
                                   password = options['password'])
 
-    if str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+    if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
         parsed_obs = xml2geojson(obs)
     elif str(options['response_format']) == 'application/json':
         parsed_obs = json2geojson(obs)
