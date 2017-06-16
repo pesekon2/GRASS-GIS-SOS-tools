@@ -116,7 +116,7 @@ def cleanup():
 
 def main():
     service = SensorObservationService(options['url'],
-                                       version = options['version'])
+                                       version=options['version'])
 
     printing = False
 
@@ -137,7 +137,7 @@ def main():
 
     if flags['p'] is True:
         if options['offering']:
-            print('\nObserved procedures of %s offering:' % options['offering'])
+            print('\nProcedures of %s offering:' % options['offering'])
             for procedure in service[options['offering']].procedures:
                 print(procedure)
         else:
@@ -147,12 +147,12 @@ def main():
     if printing is True:
         sys.exit(0)
 
-    obs = service.get_observation(offerings = [options['offering']],
-                                  responseFormat = options['response_format'],
-                                  observedProperties = [options['observed_properties']],
+    obs = service.get_observation(offerings=[options['offering']],
+                                  responseFormat=options['response_format'],
+                                  observedProperties=[options['observed_properties']],
                                   procedure=options['procedure'],
-                                  username = options['username'],
-                                  password = options['password'])
+                                  username=options['username'],
+                                  password=options['password'])
 
     if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
         parsed_obs = xml2geojson(obs)
@@ -160,9 +160,9 @@ def main():
         parsed_obs = json2geojson(obs)
 
     run_command('v.in.ogr',
-                input = parsed_obs,
-                output = options['output'],
-                flags = 'o')
+                input=parsed_obs,
+                output=options['output'],
+                flags='o')
 
     return 0
 
