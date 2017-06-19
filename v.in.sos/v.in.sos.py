@@ -22,14 +22,22 @@
 #%flag
 #% key: v
 #% description: Print observed properties for given url and offering
+#% guisection: SOS description
 #%end
 #%flag
 #% key: o
 #% description: Print offerings for given url
+#% guisection: SOS description
 #%end
 #%flag
 #% key: p
 #% description: Print procedures for given url and offering
+#% guisection: SOS description
+#%end
+#%flag
+#% key: t
+#% description: Print begin and end timestamps for given url and offering
+#% guisection: SOS description
 #%end
 #%option
 #% key: url
@@ -39,12 +47,14 @@
 #%end
 #%option G_OPT_V_OUTPUT
 #% required: no
+#% guisection: Request
 #%end
 #%option
 #% key: offering
 #% type: string
 #% description: A collection of sensor used to conveniently group them up
 #% required: no
+#% guisection: Request
 #%end
 #%option
 #% key: response_format
@@ -53,12 +63,14 @@
 #% description: Format of data output
 #% answer: text/xml;subtype="om/1.0.0"
 #% required: no
+#% guisection: Request
 #%end
 #%option
 #% key: observed_properties
 #% type: string
 #% description: The phenomena that are observed
 #% required: no
+#% guisection: Request
 #% multiple: yes
 #%end
 #%option
@@ -66,11 +78,13 @@
 #% type: string
 #% description: Who provide the observations
 #% required: no
+#% guisection: Request
 #%end
 #%option
 #% key: version
 #% type: string
 #% description: Version of SOS server
+#% guisection: Request
 #% options: 1.0.0, 2.0.0
 #% answer: 1.0.0
 #%end
