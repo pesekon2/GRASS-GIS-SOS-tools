@@ -81,6 +81,14 @@
 #% guisection: Request
 #%end
 #%option
+#% key: event_time
+#% type: string
+#% label: Timestamp of first/timestamp of last requested observation
+#% description: Exmaple: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
+#% required: no
+#% guisection: Request
+#%end
+#%option
 #% key: version
 #% type: string
 #% description: Version of SOS server
@@ -156,6 +164,14 @@ def main():
                 print(procedure)
         else:
             raise FlagException('p', 'offering')
+        printing = True
+
+    if flags['t'] is True:
+        if options['offering']:
+            print('\nBegin timestamp, end timestamp of %s offering:' % options['offering'])
+            print('%s, %s' % (service[options['offering']].begin_position, service[options['offering']].end_position))
+        else:
+            raise FlagException('t', 'offering')
         printing = True
 
     if printing is True:
