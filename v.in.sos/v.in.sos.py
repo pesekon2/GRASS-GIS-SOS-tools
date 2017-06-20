@@ -162,6 +162,9 @@ def main():
     if printing is True:
         sys.exit(0)
 
+    if options['procedure'] == '':
+        options['procedure'] = None
+
     obs = service.get_observation(offerings=[options['offering']],
                                   responseFormat=options['response_format'],
                                   observedProperties=[options['observed_properties']],
