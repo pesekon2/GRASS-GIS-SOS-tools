@@ -108,6 +108,12 @@
 #% description: Password according to username
 #% guisection: User
 #%end
+#%rules
+#% requires_all: -v, offering, url
+#% requires_all: -p, offering, url
+#% requires_all: -t, offering, url
+#% requires: -o, url
+#%end
 
 
 import sys
@@ -118,18 +124,6 @@ sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
 # TODO: Incorporate format conversions into OWSLib and don't use absolute path
 from xml2geojson import xml2geojson
 from json2geojson import json2geojson
-
-
-class FlagException(Exception):
-    def __init__(self, flag, parameter):
-        if sys.version >= (3, 0):
-            sys.tracebacklimit = None
-        else:
-            sys.tracebacklimit = 0
-
-        super(FlagException, self).__init__(
-            'You have to define parameter "%s" for using flag "%s"' % (
-                parameter, flag))
 
 
 def cleanup():
@@ -149,29 +143,20 @@ def main():
         printing = True
 
     if flags['v'] is True:
-        if options['offering']:
-            print('\nObserved properties of %s offering:' % options['offering'])
-            for observed_property in service[options['offering']].observed_properties:
-                print(observed_property)
-        else:
-            raise FlagException('v', 'offering')
+        print('\nObserved properties of %s offering:' % options['offering'])
+        for observed_property in service[options['offering']].observed_properties:
+            print(observed_property)
         printing = True
 
     if flags['p'] is True:
-        if options['offering']:
-            print('\nProcedures of %s offering:' % options['offering'])
-            for procedure in service[options['offering']].procedures:
-                print(procedure)
-        else:
-            raise FlagException('p', 'offering')
+        print('\nProcedures of %s offering:' % options['offering'])
+        for procedure in service[options['offering']].procedures:
+            print(procedure)
         printing = True
 
     if flags['t'] is True:
-        if options['offering']:
-            print('\nBegin timestamp, end timestamp of %s offering:' % options['offering'])
-            print('%s, %s' % (service[options['offering']].begin_position, service[options['offering']].end_position))
-        else:
-            raise FlagException('t', 'offering')
+        print('\nBegin timestamp, end timestamp of %s offering:' % options['offering'])
+        print('%s, %s' % (service[options['offering']].begin_position, service[options['offering']].end_position))
         printing = True
 
     if printing is True:
