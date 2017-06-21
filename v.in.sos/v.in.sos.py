@@ -119,6 +119,7 @@
 import sys
 from owslib.sos import SensorObservationService
 from grass.script import parser, run_command
+from grass.script import core as grass
 
 sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
 # TODO: Incorporate format conversions into OWSLib and don't use absolute path
@@ -165,10 +166,16 @@ def main():
     if options['procedure'] == '':
         options['procedure'] = None
 
+    if options['event_time'] == '':
+        options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
+
+    options['event_time'] = 'T'.join(options['event_time'].split(' '))
+
     obs = service.get_observation(offerings=[options['offering']],
                                   responseFormat=options['response_format'],
                                   observedProperties=[options['observed_properties']],
                                   procedure=options['procedure'],
+                                  eventTime=options['event_time'],
                                   username=options['username'],
                                   password=options['password'])
 
@@ -177,10 +184,16 @@ def main():
     elif str(options['response_format']) == 'application/json':
         parsed_obs = json2geojson(obs)
 
+    temp = open(grass.tempfile(), 'r+')
+    temp.write(parsed_obs)
+    temp.seek(0)
+
     run_command('v.in.ogr',
-                input=parsed_obs,
+                input=temp.name,
                 output=options['output'],
                 flags='o')
+
+    temp.close()
 
     return 0
 

@@ -18,7 +18,6 @@ def xml2geojson(xml_file):
     for child in root.findall('{http://www.opengis.net/om/1.0}member'):
         data = dict()
         valuesNames = list()
-        valuesIndex = 0
         nameFound = False
         separator = ','
 
@@ -29,12 +28,18 @@ def xml2geojson(xml_file):
                 nameFound = True
             elif 'field' in item.tag:
                 valuesNames.append(item.attrib['name'])
+                data.update({item.attrib['name']: ''})
             elif 'TextBlock' in item.tag:
-                separator = item.attrib['tokenSeparator']
+                tokenSeparator = item.attrib['tokenSeparator']
+                blockSeparator = item.attrib['blockSeparator']
             elif 'values' in item.tag:
-                for value in item.text.split(separator):
-                    data.update({valuesNames[valuesIndex]: value})
-                    valuesIndex += 1
+                for values in item.text.split(blockSeparator):
+                    valuesIndex = 0
+                    for value in values.split(tokenSeparator):
+                        data[valuesNames[valuesIndex]] += '%s,' % value
+                        valuesIndex += 1
+                for name in valuesNames:
+                    data[name] = data[name][:-1]
             elif 'location' in item.tag:
                 point = list(item)[0]
                 geometryType = point.tag.split('}')[1]
