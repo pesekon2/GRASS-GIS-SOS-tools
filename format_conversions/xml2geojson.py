@@ -2,7 +2,7 @@ import xml.etree.ElementTree as etree
 import json
 
 
-def xml2geojson(xml_file):
+def xml2geojson(xml_file, observedProperty):
     tree = etree.ElementTree(etree.fromstring(xml_file))
     a = {"type": "FeatureCollection", "features": []}
 
@@ -20,6 +20,7 @@ def xml2geojson(xml_file):
         valuesNames = list()
         nameFound = False
         separator = ','
+        currentIndex = 1
 
         for item in child.iter():
 
@@ -28,18 +29,23 @@ def xml2geojson(xml_file):
                 nameFound = True
             elif 'field' in item.tag:
                 valuesNames.append(item.attrib['name'])
-                data.update({item.attrib['name']: ''})
+                #data.update({item.attrib['name']: ''})
+            elif 'Quantity' in item.tag:
+                if item.attrib['definition'] == observedProperty:
+                    wantedIndex = currentIndex
+                else:
+                    currentIndex += 1
             elif 'TextBlock' in item.tag:
                 tokenSeparator = item.attrib['tokenSeparator']
                 blockSeparator = item.attrib['blockSeparator']
             elif 'values' in item.tag:
                 for values in item.text.split(blockSeparator):
-                    valuesIndex = 0
-                    for value in values.split(tokenSeparator):
-                        data[valuesNames[valuesIndex]] += '%s,' % value
-                        valuesIndex += 1
-                for name in valuesNames:
-                    data[name] = data[name][:-1]
+                    #valuesIndex = 0
+                    data.update({values.split(tokenSeparator)[0]: values.split(tokenSeparator)[wantedIndex]})# values.split(tokenSeparator):
+                #        data[valuesNames[valuesIndex]] += '%s,' % value
+                 #       valuesIndex += 1
+                #for name in valuesNames:
+                 #   data[name] = data[name][:-1]
             elif 'location' in item.tag:
                 point = list(item)[0]
                 geometryType = point.tag.split('}')[1]

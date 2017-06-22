@@ -132,6 +132,8 @@ def cleanup():
 
 
 def main():
+    parsed_obs = list()
+
     service = SensorObservationService(options['url'],
                                        version=options['version'])
 
@@ -139,6 +141,7 @@ def main():
         get_description(service)
 
     handle_not_given_options(service)
+    options['event_time'] = 'T'.join(options['event_time'].split(' '))
 
     obs = service.get_observation(offerings=[options['offering']],
                                   responseFormat=options['response_format'],
@@ -149,20 +152,25 @@ def main():
                                   password=options['password'])
 
     if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-        parsed_obs = xml2geojson(obs)
+        for property in options['observed_properties'].split(','):
+            parsed_obs.append(xml2geojson(obs, property))
     elif str(options['response_format']) == 'application/json':
-        parsed_obs = json2geojson(obs)
+        for property in options['observed_properties'].split(','):
+            parsed_obs.append(json2geojson(obs, property))
 
-    temp = open(grass.tempfile(), 'r+')
-    temp.write(parsed_obs)
-    temp.seek(0)
+    i = ''
+    for observation in parsed_obs:
+        i += 'x'
+        temp = open(grass.tempfile(), 'r+')
+        temp.write(observation)
+        temp.seek(0)
 
-    run_command('v.in.ogr',
-                input=temp.name,
-                output=options['output'],
-                flags='o')
+        run_command('v.in.ogr',
+                    input=temp.name,
+                    output=i+options['output'],
+                    flags='o')
 
-    temp.close()
+        temp.close()
 
     return 0
 
@@ -204,8 +212,6 @@ def handle_not_given_options(service):
 
     if options['event_time'] == '':
         options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
-
-    options['event_time'] = 'T'.join(options['event_time'].split(' '))
 
 
 if __name__ == "__main__":
