@@ -166,6 +166,12 @@ def main():
     if options['procedure'] == '':
         options['procedure'] = None
 
+    if options['observed_properties'] == '':
+        for observed_property in service[
+            options['offering']].observed_properties:
+            options['observed_properties'] += '%s,' % observed_property
+        options['observed_properties'] = options['observed_properties'][:-1]
+
     if options['event_time'] == '':
         options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
 
