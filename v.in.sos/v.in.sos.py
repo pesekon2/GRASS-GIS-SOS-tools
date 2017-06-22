@@ -139,6 +139,7 @@ def main():
         get_description(service)
 
     handle_not_given_options(service)
+    options['event_time'] = 'T'.join(options['event_time'].split(' '))
 
     obs = service.get_observation(offerings=[options['offering']],
                                   responseFormat=options['response_format'],
@@ -204,8 +205,6 @@ def handle_not_given_options(service):
 
     if options['event_time'] == '':
         options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
-
-    options['event_time'] = 'T'.join(options['event_time'].split(' '))
 
 
 if __name__ == "__main__":
