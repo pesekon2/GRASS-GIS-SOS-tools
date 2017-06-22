@@ -135,47 +135,10 @@ def main():
     service = SensorObservationService(options['url'],
                                        version=options['version'])
 
-    printing = False
+    if any(flags.itervalues()):
+        get_description(service)
 
-    if flags['o'] is True:
-        print('\nSOS offerings:')
-        for offering in service.offerings:
-            print(offering.name)
-        printing = True
-
-    if flags['v'] is True:
-        print('\nObserved properties of %s offering:' % options['offering'])
-        for observed_property in service[options['offering']].observed_properties:
-            print(observed_property)
-        printing = True
-
-    if flags['p'] is True:
-        print('\nProcedures of %s offering:' % options['offering'])
-        for procedure in service[options['offering']].procedures:
-            print(procedure)
-        printing = True
-
-    if flags['t'] is True:
-        print('\nBegin timestamp, end timestamp of %s offering:' % options['offering'])
-        print('%s, %s' % (service[options['offering']].begin_position, service[options['offering']].end_position))
-        printing = True
-
-    if printing is True:
-        sys.exit(0)
-
-    if options['procedure'] == '':
-        options['procedure'] = None
-
-    if options['observed_properties'] == '':
-        for observed_property in service[
-            options['offering']].observed_properties:
-            options['observed_properties'] += '%s,' % observed_property
-        options['observed_properties'] = options['observed_properties'][:-1]
-
-    if options['event_time'] == '':
-        options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
-
-    options['event_time'] = 'T'.join(options['event_time'].split(' '))
+    handle_not_given_options(service)
 
     obs = service.get_observation(offerings=[options['offering']],
                                   responseFormat=options['response_format'],
@@ -202,6 +165,47 @@ def main():
     temp.close()
 
     return 0
+
+
+def get_description(service):
+    if flags['o'] is True:
+        print('\nSOS offerings:')
+        for offering in service.offerings:
+            print(offering.name)
+
+    if flags['v'] is True:
+        print('\nObserved properties of %s offering:' % options['offering'])
+        for observed_property in service[
+            options['offering']].observed_properties:
+            print(observed_property)
+
+    if flags['p'] is True:
+        print('\nProcedures of %s offering:' % options['offering'])
+        for procedure in service[options['offering']].procedures:
+            print(procedure)
+
+    if flags['t'] is True:
+        print('\nBegin timestamp, end timestamp of %s offering:' % options[
+            'offering'])
+        print('%s, %s' % (service[options['offering']].begin_position,
+                          service[options['offering']].end_position))
+
+    sys.exit(0)
+
+
+def handle_not_given_options(service):
+    if options['procedure'] == '':
+        options['procedure'] = None
+
+    if options['observed_properties'] == '':
+        for observed_property in service[options['offering']].observed_properties:
+            options['observed_properties'] += '%s,' % observed_property
+        options['observed_properties'] = options['observed_properties'][:-1]
+
+    if options['event_time'] == '':
+        options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
+
+    options['event_time'] = 'T'.join(options['event_time'].split(' '))
 
 
 if __name__ == "__main__":
