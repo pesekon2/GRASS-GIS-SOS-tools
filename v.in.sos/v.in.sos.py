@@ -132,7 +132,7 @@ def cleanup():
 
 
 def main():
-    parsed_obs = list()
+    parsed_obs = dict()
 
     service = SensorObservationService(options['url'],
                                        version=options['version'])
@@ -153,14 +153,15 @@ def main():
 
     if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
         for property in options['observed_properties'].split(','):
-            parsed_obs.append(xml2geojson(obs, property))
+            parsed_obs.update({property: xml2geojson(obs, property)})
     elif str(options['response_format']) == 'application/json':
         for property in options['observed_properties'].split(','):
-            parsed_obs.append(json2geojson(obs, property))
+            parsed_obs.update({property: json2geojson(obs, property)})
 
     i = '1'
 
-    for observation in parsed_obs:
+    for key, observation in parsed_obs.iteritems():
+        tableName = key.split(':')[-1]
         temp = open(grass.tempfile(), 'r+')
         temp.write(observation)
         temp.seek(0)
@@ -170,23 +171,15 @@ def main():
                         element='vector',
                         file=options['output'])
 
-            #try:
-             #   run_command('db.dropcolumn',
-              #              table='table%s' % i,
-               #             column='cat',
-                #            flags='f')
-            #except:
-             #   pass
-
             run_command('db.in.ogr',
                         input=temp.name,
-                        output='table%s' % i,
+                        output=tableName,
                         key='id',
                         overwrite=True,
                         quiet=True)
             run_command('v.db.connect',
                         map=options['output'],
-                        table='table%s' % i,
+                        table=tableName,
                         layer=int(i)+1,
                         key='id',
                         flags='o')
