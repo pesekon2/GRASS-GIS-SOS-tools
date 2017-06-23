@@ -158,19 +158,60 @@ def main():
         for property in options['observed_properties'].split(','):
             parsed_obs.append(json2geojson(obs, property))
 
-    i = ''
+    i = '1'
+
     for observation in parsed_obs:
-        i += 'x'
         temp = open(grass.tempfile(), 'r+')
         temp.write(observation)
         temp.seek(0)
 
-        run_command('v.in.ogr',
-                    input=temp.name,
-                    output=i+options['output'],
-                    flags='o')
+        try:
+            run_command('g.findfile',
+                        element='vector',
+                        file=options['output'])
+
+            #try:
+             #   run_command('db.dropcolumn',
+              #              table='table%s' % i,
+               #             column='cat',
+                #            flags='f')
+            #except:
+             #   pass
+
+            run_command('db.in.ogr',
+                        input=temp.name,
+                        output='table%s' % i,
+                        key='id',
+                        overwrite=True,
+                        quiet=True)
+            run_command('v.db.connect',
+                        map=options['output'],
+                        table='table%s' % i,
+                        layer=int(i)+1,
+                        key='id',
+                        flags='o')
+        except:
+            run_command('v.in.ogr',
+                        input=temp.name,
+                        output=options['output'],
+                        flags='o',
+                        quiet=True)
+            run_command('v.db.renamecolumn',
+                        map=options['output'],
+                        column='cat,id')
+
+        #run_command('db.in.ogr',
+         #           input=temp.name,
+          #          output=i)
+        #run_command('v.in.ogr',
+         #           input=temp.name,
+          #          output=options['output'],
+           #         flags='o')
 
         temp.close()
+
+
+        i = str(int(i) + 1)
 
     return 0
 
