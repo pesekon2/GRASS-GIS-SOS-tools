@@ -186,7 +186,7 @@ def main():
             run_command('v.db.connect',
                         map=options['output'],
                         table=tableName,
-                        layer=i+1,
+                        layer=i,
                         key='id',
                         flags='o')
         except:
