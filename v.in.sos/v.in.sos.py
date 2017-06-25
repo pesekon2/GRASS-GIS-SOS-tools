@@ -158,7 +158,7 @@ def main():
         for property in options['observed_properties'].split(','):
             parsed_obs.update({property: json2geojson(obs, property)})
 
-    i = '1'
+    i = 1
 
     for key, observation in parsed_obs.iteritems():
         tableName = key
@@ -186,7 +186,7 @@ def main():
             run_command('v.db.connect',
                         map=options['output'],
                         table=tableName,
-                        layer=int(i)+1,
+                        layer=i+1,
                         key='id',
                         flags='o')
         except:
@@ -210,7 +210,7 @@ def main():
         temp.close()
 
 
-        i = str(int(i) + 1)
+        i = i+1
 
     return 0
 
