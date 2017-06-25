@@ -161,7 +161,13 @@ def main():
     i = '1'
 
     for key, observation in parsed_obs.iteritems():
-        tableName = key.split(':')[-1]
+        tableName = key
+        if ':' in tableName:
+            tableName = '_'.join(tableName.split(':'))
+        if '-' in tableName:
+            tableName = '_'.join(tableName.split('-'))
+        if '.' in tableName:
+            tableName = '_'.join(tableName.split('.'))
         temp = open(grass.tempfile(), 'r+')
         temp.write(observation)
         temp.seek(0)
