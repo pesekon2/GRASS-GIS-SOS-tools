@@ -158,59 +158,7 @@ def main():
         for property in options['observed_properties'].split(','):
             parsed_obs.update({property: json2geojson(obs, property)})
 
-    i = 1
-
-    for key, observation in parsed_obs.iteritems():
-        tableName = key
-        if ':' in tableName:
-            tableName = '_'.join(tableName.split(':'))
-        if '-' in tableName:
-            tableName = '_'.join(tableName.split('-'))
-        if '.' in tableName:
-            tableName = '_'.join(tableName.split('.'))
-        temp = open(grass.tempfile(), 'r+')
-        temp.write(observation)
-        temp.seek(0)
-
-        try:
-            run_command('g.findfile',
-                        element='vector',
-                        file=options['output'])
-
-            run_command('db.in.ogr',
-                        input=temp.name,
-                        output=tableName,
-                        key='id',
-                        overwrite=True,
-                        quiet=True)
-            run_command('v.db.connect',
-                        map=options['output'],
-                        table=tableName,
-                        layer=i,
-                        key='id',
-                        flags='o')
-        except:
-            run_command('v.in.ogr',
-                        input=temp.name,
-                        output=options['output'],
-                        flags='o',
-                        quiet=True)
-            run_command('v.db.renamecolumn',
-                        map=options['output'],
-                        column='cat,id')
-
-        #run_command('db.in.ogr',
-         #           input=temp.name,
-          #          output=i)
-        #run_command('v.in.ogr',
-         #           input=temp.name,
-          #          output=options['output'],
-           #         flags='o')
-
-        temp.close()
-
-
-        i = i+1
+    create_maps(parsed_obs)
 
     return 0
 
@@ -252,6 +200,54 @@ def handle_not_given_options(service):
 
     if options['event_time'] == '':
         options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
+
+
+def create_maps(parsed_obs):
+    i = 1
+
+    for key, observation in parsed_obs.iteritems():
+        tableName = key
+        if ':' in tableName:
+            tableName = '_'.join(tableName.split(':'))
+        if '-' in tableName:
+            tableName = '_'.join(tableName.split('-'))
+        if '.' in tableName:
+            tableName = '_'.join(tableName.split('.'))
+        temp = open(grass.tempfile(), 'r+')
+        temp.write(observation)
+        temp.seek(0)
+
+        try:
+            run_command('g.findfile',
+                        element='vector',
+                        file=options['output'])
+
+            run_command('db.in.ogr',
+                        input=temp.name,
+                        output=tableName,
+                        key='id',
+                        overwrite=True,
+                        quiet=True)
+            run_command('v.db.connect',
+                        map=options['output'],
+                        table=tableName,
+                        layer=i,
+                        key='id',
+                        flags='o')
+        except:
+            run_command('v.in.ogr',
+                        input=temp.name,
+                        output=options['output'],
+                        flags='o',
+                        quiet=True)
+            run_command('v.db.renamecolumn',
+                        map=options['output'],
+                        column='cat,id')
+
+        temp.close()
+
+
+        i = i+1
 
 
 if __name__ == "__main__":
