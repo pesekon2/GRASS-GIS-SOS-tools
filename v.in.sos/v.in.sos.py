@@ -235,14 +235,25 @@ def create_maps(parsed_obs):
                         key='id',
                         flags='o')
         except:
+            try:
+                run_command('db.execute',
+                            sql='DROP TABLE %s' % options['output'].split('@')[0])
+            except:
+                pass
+
             run_command('v.in.ogr',
                         input=temp.name,
                         output=options['output'],
                         flags='o',
                         quiet=True)
-            run_command('v.db.renamecolumn',
+
+            run_command('v.db.addcolumn',
                         map=options['output'],
-                        column='cat,id')
+                        columns='id integer')
+            run_command('v.db.update',
+                        map=options['output'],
+                        column='id',
+                        query_column='cat')
 
         temp.close()
 
