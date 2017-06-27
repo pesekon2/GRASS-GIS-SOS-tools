@@ -54,6 +54,7 @@
 #% type: string
 #% description: A collection of sensor used to conveniently group them up
 #% required: no
+#% multiple: yes
 #% guisection: Request
 #%end
 #%option
@@ -140,25 +141,29 @@ def main():
     if any(flags.itervalues()):
         get_description(service)
 
-    handle_not_given_options(service)
-    options['event_time'] = 'T'.join(options['event_time'].split(' '))
+    for off in options['offering'].split(','):
+        # TODO: Find better way than iteration (at best OWSLib upgrade)
+        handle_not_given_options(service, off)
+        options['event_time'] = 'T'.join(options['event_time'].split(' '))
 
-    obs = service.get_observation(offerings=[options['offering']],
-                                  responseFormat=options['response_format'],
-                                  observedProperties=[options['observed_properties']],
-                                  procedure=options['procedure'],
-                                  eventTime=options['event_time'],
-                                  username=options['username'],
-                                  password=options['password'])
 
-    if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-        for property in options['observed_properties'].split(','):
-            parsed_obs.update({property: xml2geojson(obs, property)})
-    elif str(options['response_format']) == 'application/json':
-        for property in options['observed_properties'].split(','):
-            parsed_obs.update({property: json2geojson(obs, property)})
+        print(off)
+        obs = service.get_observation(offerings=[off],
+                                      responseFormat=options['response_format'],
+                                      observedProperties=[options['observed_properties']],
+                                      procedure=options['procedure'],
+                                      eventTime=options['event_time'],
+                                      username=options['username'],
+                                      password=options['password'])
 
-    create_maps(parsed_obs)
+        if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+            for property in options['observed_properties'].split(','):
+                parsed_obs.update({property: xml2geojson(obs, property)})
+        elif str(options['response_format']) == 'application/json':
+            for property in options['observed_properties'].split(','):
+                parsed_obs.update({property: json2geojson(obs, property)})
+
+        create_maps(parsed_obs)
 
     return 0
 
@@ -189,8 +194,8 @@ def get_description(service):
     sys.exit(0)
 
 
-def handle_not_given_options(service):
-    if options['offering'] == '' or options['output'] == '':
+def handle_not_given_options(service, offering=None):
+    if offering == '' or options['output'] == '':
         if sys.version >= (3, 0):
             sys.tracebacklimit = None
         else:
@@ -202,12 +207,12 @@ def handle_not_given_options(service):
         options['procedure'] = None
 
     if options['observed_properties'] == '':
-        for observed_property in service[options['offering']].observed_properties:
+        for observed_property in service[offering].observed_properties:
             options['observed_properties'] += '%s,' % observed_property
         options['observed_properties'] = options['observed_properties'][:-1]
 
     if options['event_time'] == '':
-        options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
+        options['event_time'] = '%s/%s' % (service[offering].begin_position, service[offering].end_position)
 
 
 def create_maps(parsed_obs):
