@@ -29,7 +29,6 @@ def xml2geojson(xml_file, observedProperty):
                 nameFound = True
             elif 'field' in item.tag:
                 valuesNames.append(item.attrib['name'])
-                #data.update({item.attrib['name']: ''})
             elif 'Quantity' in item.tag:
                 if item.attrib['definition'] == observedProperty:
                     wantedIndex = currentIndex
@@ -40,12 +39,10 @@ def xml2geojson(xml_file, observedProperty):
                 blockSeparator = item.attrib['blockSeparator']
             elif 'values' in item.tag:
                 for values in item.text.split(blockSeparator):
-                    #valuesIndex = 0
-                    data.update({values.split(tokenSeparator)[0]: values.split(tokenSeparator)[wantedIndex]})# values.split(tokenSeparator):
-                #        data[valuesNames[valuesIndex]] += '%s,' % value
-                 #       valuesIndex += 1
-                #for name in valuesNames:
-                 #   data[name] = data[name][:-1]
+                    timeStamp = 't%s' % values.split(tokenSeparator)[0]
+                    for character in [':', '-', '+']:
+                        timeStamp = ''.join(timeStamp.split(character))
+                    data.update({timeStamp: values.split(tokenSeparator)[wantedIndex]})
             elif 'location' in item.tag:
                 point = list(item)[0]
                 geometryType = point.tag.split('}')[1]
