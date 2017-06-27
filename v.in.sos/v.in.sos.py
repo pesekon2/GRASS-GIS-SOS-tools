@@ -190,6 +190,14 @@ def get_description(service):
 
 
 def handle_not_given_options(service):
+    if options['offering'] == '' or options['output'] == '':
+        if sys.version >= (3, 0):
+            sys.tracebacklimit = None
+        else:
+            sys.tracebacklimit = 0
+        raise AttributeError(
+            'You have to define any flag or parameters output and offering')
+
     if options['procedure'] == '':
         options['procedure'] = None
 
