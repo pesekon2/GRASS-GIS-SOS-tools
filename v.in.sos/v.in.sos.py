@@ -121,6 +121,10 @@ import sys
 from owslib.sos import SensorObservationService
 from grass.script import parser, run_command
 from grass.script import core as grass
+from grass.pygrass.vector import VectorTopo
+from grass.pygrass.vector.geometry import Point
+from grass.pygrass.vector.table import Link
+import json
 
 sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
 # TODO: Incorporate format conversions into OWSLib and don't use absolute path
@@ -142,6 +146,10 @@ def main():
     if any(flags.itervalues()):
         get_description(service)
 
+    new = VectorTopo(options['output'])
+    new.open('w')
+    new.close()
+
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
         handle_not_given_options(service, off)
@@ -155,10 +163,6 @@ def main():
                                       username=options['username'],
                                       password=options['password'])
 
-        a = open('a.xml', 'w')
-        a.write(obs)
-        a.close()
-
         if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
             for property in options['observed_properties'].split(','):
                 parsed_obs.update({property: xml2geojson(obs, property)})
@@ -166,7 +170,7 @@ def main():
             for property in options['observed_properties'].split(','):
                 parsed_obs.update({property: json2geojson(obs, property)})
 
-        create_maps(parsed_obs, off, layerscount)
+        create_maps(parsed_obs, off, layerscount, new)
         layerscount += len(parsed_obs)
 
     return 0
@@ -219,10 +223,11 @@ def handle_not_given_options(service, offering=None):
         options['event_time'] = '%s/%s' % (service[offering].begin_position, service[offering].end_position)
 
 
-def create_maps(parsed_obs, offering, layer):
+def create_maps(parsed_obs, offering, layer, new):
     i = layer + 1
 
     for key, observation in parsed_obs.iteritems():
+        new.open('rw')
         tableName = '%s_%s' % (offering, key)
         if ':' in tableName:
             tableName = '_'.join(tableName.split(':'))
@@ -230,49 +235,90 @@ def create_maps(parsed_obs, offering, layer):
             tableName = '_'.join(tableName.split('-'))
         if '.' in tableName:
             tableName = '_'.join(tableName.split('.'))
-        temp = open(grass.tempfile(), 'r+')
-        temp.write(observation)
-        temp.seek(0)
 
-        try:
-            run_command('g.findfile',
-                        element='vector',
-                        file=options['output'])
+        data = json.loads(observation)
 
-            run_command('db.in.ogr',
-                        input=temp.name,
-                        output=tableName,
-                        key='id',
-                        overwrite=True,
-                        quiet=True)
-            run_command('v.db.connect',
-                        map=options['output'],
-                        table=tableName,
-                        layer=i,
-                        key='id',
-                        flags='o')
-        except:
-            try:
-                run_command('db.execute',
-                            sql='DROP TABLE %s' % options['output'].split('@')[0])
-            except:
-                pass
+        points = list()
+        for a in data['features']:
+            points.append(Point(*a['geometry']['coordinates']))
+            new.write(Point(*a['geometry']['coordinates']))
 
-            run_command('v.in.ogr',
-                        input=temp.name,
-                        output=options['output'],
-                        flags='o',
-                        quiet=True)
+        link = Link(layer=i, name=tableName, table=tableName, key='cat')
+        new.dblinks.add(link)
 
-            run_command('v.db.addcolumn',
-                        map=options['output'],
-                        columns='id integer')
-            run_command('v.db.update',
-                        map=options['output'],
-                        column='id',
-                        query_column='cat')
+        cols = [(u'cat', 'INTEGER PRIMARY KEY')]
+        for a in data['features']:
+            for b in a['properties'].keys():
+                if b != 'name':
+                    cols.append((u'%s' % b, 'VARCHAR'))
+                elif (u'name', 'VARCHAR') not in cols:
+                    cols.append((u'%s' % b, 'VARCHAR'))
 
-        temp.close()
+        new.table = new.dblinks.by_layer(i).table()
+        new.table.create(cols)
+        index = 1
+        for a in data['features']:
+            for item, value in a['properties'].iteritems():
+                if item != 'name':
+                    insert = (index,)
+                    for b in range(1,len(cols)):
+                        if cols[b][0] == 'name':
+                            insert += (a['properties']['name'],)
+                        elif cols[b][0] != item:
+                            insert += ('',)
+                        else:
+                            insert += (value,)
+                    index += 1
+
+                    new.table.insert([insert], many=True)
+
+        new.table.conn.commit()
+        new.close()
+
+
+        # temp = open(grass.tempfile(), 'r+')
+        # temp.write(observation)
+        # temp.seek(0)
+        #
+        # try:
+        #     run_command('g.findfile',
+        #                 element='vector',
+        #                 file=options['output'])
+        #
+        #     run_command('db.in.ogr',
+        #                 input=temp.name,
+        #                 output=tableName,
+        #                 key='id',
+        #                 overwrite=True,
+        #                 quiet=True)
+        #     run_command('v.db.connect',
+        #                 map=options['output'],
+        #                 table=tableName,
+        #                 layer=i,
+        #                 key='id',
+        #                 flags='o')
+        # except:
+        #     try:
+        #         run_command('db.execute',
+        #                     sql='DROP TABLE %s' % options['output'].split('@')[0])
+        #     except:
+        #         pass
+        #
+        #     run_command('v.in.ogr',
+        #                 input=temp.name,
+        #                 output=options['output'],
+        #                 flags='o',
+        #                 quiet=True)
+        #
+        #     run_command('v.db.addcolumn',
+        #                 map=options['output'],
+        #                 columns='id integer')
+        #     run_command('v.db.update',
+        #                 map=options['output'],
+        #                 column='id',
+        #                 query_column='cat')
+        #
+        # temp.close()
 
 
         i = i+1
