@@ -134,6 +134,7 @@ def cleanup():
 
 def main():
     parsed_obs = dict()
+    layerscount = 0
 
     service = SensorObservationService(options['url'],
                                        version=options['version'])
@@ -146,8 +147,6 @@ def main():
         handle_not_given_options(service, off)
         options['event_time'] = 'T'.join(options['event_time'].split(' '))
 
-
-        print(off)
         obs = service.get_observation(offerings=[off],
                                       responseFormat=options['response_format'],
                                       observedProperties=[options['observed_properties']],
@@ -156,6 +155,10 @@ def main():
                                       username=options['username'],
                                       password=options['password'])
 
+        a = open('a.xml', 'w')
+        a.write(obs)
+        a.close()
+
         if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
             for property in options['observed_properties'].split(','):
                 parsed_obs.update({property: xml2geojson(obs, property)})
@@ -163,7 +166,8 @@ def main():
             for property in options['observed_properties'].split(','):
                 parsed_obs.update({property: json2geojson(obs, property)})
 
-        create_maps(parsed_obs)
+        create_maps(parsed_obs, off, layerscount)
+        layerscount += len(parsed_obs)
 
     return 0
 
@@ -215,11 +219,11 @@ def handle_not_given_options(service, offering=None):
         options['event_time'] = '%s/%s' % (service[offering].begin_position, service[offering].end_position)
 
 
-def create_maps(parsed_obs):
-    i = 1
+def create_maps(parsed_obs, offering, layer):
+    i = layer + 1
 
     for key, observation in parsed_obs.iteritems():
-        tableName = key
+        tableName = '%s_%s' % (offering, key)
         if ':' in tableName:
             tableName = '_'.join(tableName.split(':'))
         if '-' in tableName:
