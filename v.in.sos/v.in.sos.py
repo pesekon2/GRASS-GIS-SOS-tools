@@ -215,7 +215,7 @@ def handle_not_given_options(service, offering=None):
         else:
             sys.tracebacklimit = 0
         raise AttributeError(
-            'You have to define any flag or parameters output and offering')
+            "You have to define any flags or use 'output' and 'offering' parameters to get the data")
 
     if options['procedure'] == '':
         options['procedure'] = None
