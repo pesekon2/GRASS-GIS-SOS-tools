@@ -148,7 +148,6 @@ def main():
 
     new = VectorTopo(options['output'])
     new.open('w')
-    new.close()
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
@@ -173,11 +172,14 @@ def main():
         except AttributeError:
             print('PROCESS INTERRUPTED')
             print('There is no data, could you change the time parameter, observed properties, procedures or offerings')
+            new.close()
             new.remove()
             sys.exit(0)
 
         create_maps(parsed_obs, off, layerscount, new)
         layerscount += len(parsed_obs)
+
+    new.close()
 
     return 0
 
@@ -233,7 +235,7 @@ def create_maps(parsed_obs, offering, layer, new):
     i = layer + 1
 
     for key, observation in parsed_obs.iteritems():
-        new.open('rw')
+
         tableName = '%s_%s' % (offering, key)
         if ':' in tableName:
             tableName = '_'.join(tableName.split(':'))
@@ -279,7 +281,6 @@ def create_maps(parsed_obs, offering, layer, new):
                     new.table.insert([insert], many=True)
 
         new.table.conn.commit()
-        new.close()
 
 
         # temp = open(grass.tempfile(), 'r+')
