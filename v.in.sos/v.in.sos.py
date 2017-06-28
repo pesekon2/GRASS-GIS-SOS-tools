@@ -163,12 +163,18 @@ def main():
                                       username=options['username'],
                                       password=options['password'])
 
-        if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-            for property in options['observed_properties'].split(','):
-                parsed_obs.update({property: xml2geojson(obs, property)})
-        elif str(options['response_format']) == 'application/json':
-            for property in options['observed_properties'].split(','):
-                parsed_obs.update({property: json2geojson(obs, property)})
+        try:
+            if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+                for property in options['observed_properties'].split(','):
+                    parsed_obs.update({property: xml2geojson(obs, property)})
+            elif str(options['response_format']) == 'application/json':
+                for property in options['observed_properties'].split(','):
+                    parsed_obs.update({property: json2geojson(obs, property)})
+        except AttributeError:
+            print('PROCESS INTERRUPTED')
+            print('There is no data, could you change the time parameter, observed properties, procedures or offerings')
+            new.remove()
+            sys.exit(0)
 
         create_maps(parsed_obs, off, layerscount, new)
         layerscount += len(parsed_obs)
