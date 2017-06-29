@@ -170,11 +170,11 @@ def main():
                 for property in options['observed_properties'].split(','):
                     parsed_obs.update({property: json2geojson(obs, property)})
         except AttributeError:
-            print('PROCESS INTERRUPTED')
-            print('There is no data, could you change the time parameter, observed properties, procedures or offerings')
-            new.close()
-            new.remove()
-            sys.exit(0)
+            if sys.version >= (3, 0):
+                sys.tracebacklimit = None
+            else:
+                sys.tracebacklimit = 0
+            raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
         create_maps(parsed_obs, off, layerscount, new)
         layerscount += len(parsed_obs)
