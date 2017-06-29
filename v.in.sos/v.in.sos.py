@@ -236,7 +236,7 @@ def create_maps(parsed_obs, offering, layer, new):
 
     for key, observation in parsed_obs.iteritems():
 
-        tableName = '%s_%s' % (offering, key)
+        tableName = '{}_{}_{}'.format(options['output'], offering, key)
         if ':' in tableName:
             tableName = '_'.join(tableName.split(':'))
         if '-' in tableName:
