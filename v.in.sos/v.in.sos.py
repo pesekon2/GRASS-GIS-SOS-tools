@@ -254,31 +254,24 @@ def create_maps(parsed_obs, offering, layer, new):
         link = Link(layer=i, name=tableName, table=tableName, key='cat')
         new.dblinks.add(link)
 
-        cols = [(u'cat', 'INTEGER PRIMARY KEY')]
+        cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
         for a in data['features']:
             for b in a['properties'].keys():
                 if b != 'name':
-                    cols.append((u'%s' % b, 'VARCHAR'))
-                elif (u'name', 'VARCHAR') not in cols:
                     cols.append((u'%s' % b, 'VARCHAR'))
 
         new.table = new.dblinks.by_layer(i).table()
         new.table.create(cols)
         index = 1
         for a in data['features']:
+            insert = [''] * len(cols)
             for item, value in a['properties'].iteritems():
-                if item != 'name':
-                    insert = (index,)
-                    for b in range(1,len(cols)):
-                        if cols[b][0] == 'name':
-                            insert += (a['properties']['name'],)
-                        elif cols[b][0] != item:
-                            insert += ('',)
-                        else:
-                            insert += (value,)
-                    index += 1
+                insert[cols.index((item, 'VARCHAR'))] = value
 
-                    new.table.insert([insert], many=True)
+            insert[0] = index
+            index += 1
+            insert = tuple(insert)
+            new.table.insert([insert], many=True)
 
         new.table.conn.commit()
 
