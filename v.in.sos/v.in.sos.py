@@ -54,6 +54,7 @@
 #% type: string
 #% description: A collection of sensor used to conveniently group them up
 #% required: no
+#% multiple: yes
 #% guisection: Request
 #%end
 #%option
@@ -120,6 +121,11 @@ import sys
 from owslib.sos import SensorObservationService
 from grass.script import parser, run_command
 from grass.script import core as grass
+from grass.pygrass.vector import VectorTopo
+from grass.pygrass.vector.geometry import Point
+from grass.pygrass.vector.table import Link
+from sqlite3 import OperationalError
+import json
 
 sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
 # TODO: Incorporate format conversions into OWSLib and don't use absolute path
@@ -132,38 +138,57 @@ def cleanup():
 
 
 def main():
+    parsed_obs = dict()
+    layerscount = 0
+
     service = SensorObservationService(options['url'],
                                        version=options['version'])
 
     if any(flags.itervalues()):
         get_description(service)
 
-    handle_not_given_options(service)
-    options['event_time'] = 'T'.join(options['event_time'].split(' '))
+    if options['offering'] == '' or options['output'] == '':
+        if sys.version >= (3, 0):
+            sys.tracebacklimit = None
+        else:
+            sys.tracebacklimit = 0
+        raise AttributeError(
+            "You have to define any flags or use 'output' and 'offering' parameters to get the data")
 
-    obs = service.get_observation(offerings=[options['offering']],
-                                  responseFormat=options['response_format'],
-                                  observedProperties=[options['observed_properties']],
-                                  procedure=options['procedure'],
-                                  eventTime=options['event_time'],
-                                  username=options['username'],
-                                  password=options['password'])
+    new = VectorTopo(options['output'])
+    new.open('w')
 
-    if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-        parsed_obs = xml2geojson(obs)
-    elif str(options['response_format']) == 'application/json':
-        parsed_obs = json2geojson(obs)
+    for off in options['offering'].split(','):
+        # TODO: Find better way than iteration (at best OWSLib upgrade)
+        handle_not_given_options(service, off)
+        options['event_time'] = 'T'.join(options['event_time'].split(' '))
 
-    temp = open(grass.tempfile(), 'r+')
-    temp.write(parsed_obs)
-    temp.seek(0)
+        obs = service.get_observation(offerings=[off],
+                                      responseFormat=options['response_format'],
+                                      observedProperties=[options['observed_properties']],
+                                      procedure=options['procedure'],
+                                      eventTime=options['event_time'],
+                                      username=options['username'],
+                                      password=options['password'])
 
-    run_command('v.in.ogr',
-                input=temp.name,
-                output=options['output'],
-                flags='o')
+        try:
+            if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+                for property in options['observed_properties'].split(','):
+                    parsed_obs.update({property: xml2geojson(obs, property)})
+            elif str(options['response_format']) == 'application/json':
+                for property in options['observed_properties'].split(','):
+                    parsed_obs.update({property: json2geojson(obs, property)})
+        except AttributeError:
+            if sys.version >= (3, 0):
+                sys.tracebacklimit = None
+            else:
+                sys.tracebacklimit = 0
+            raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
-    temp.close()
+        create_maps(parsed_obs, off, layerscount, new)
+        layerscount += len(parsed_obs)
+
+    new.close()
 
     return 0
 
@@ -194,17 +219,124 @@ def get_description(service):
     sys.exit(0)
 
 
-def handle_not_given_options(service):
+def handle_not_given_options(service, offering=None):
     if options['procedure'] == '':
         options['procedure'] = None
 
     if options['observed_properties'] == '':
-        for observed_property in service[options['offering']].observed_properties:
+        for observed_property in service[offering].observed_properties:
             options['observed_properties'] += '%s,' % observed_property
         options['observed_properties'] = options['observed_properties'][:-1]
 
     if options['event_time'] == '':
-        options['event_time'] = '%s/%s' % (service[options['offering']].begin_position, service[options['offering']].end_position)
+        options['event_time'] = '%s/%s' % (service[offering].begin_position, service[offering].end_position)
+
+
+def create_maps(parsed_obs, offering, layer, new):
+    i = layer + 1
+
+    for key, observation in parsed_obs.iteritems():
+
+        tableName = '{}_{}_{}'.format(options['output'], offering, key)
+        if ':' in tableName:
+            tableName = '_'.join(tableName.split(':'))
+        if '-' in tableName:
+            tableName = '_'.join(tableName.split('-'))
+        if '.' in tableName:
+            tableName = '_'.join(tableName.split('.'))
+
+        data = json.loads(observation)
+
+        points = list()
+        for a in data['features']:
+            points.append(Point(*a['geometry']['coordinates']))
+            new.write(Point(*a['geometry']['coordinates']))
+
+        link = Link(layer=i, name=tableName, table=tableName, key='cat')
+        new.dblinks.add(link)
+
+        cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
+        for a in data['features']:
+            for b in a['properties'].keys():
+                if b != 'name':
+                    cols.append((u'%s' % b, 'VARCHAR'))
+
+        if len(cols) > 2000:
+            grass.warning(
+                'Recommended number of columns is less than 2000, you have '
+                'reached {}\nYou should set an event_time with a smaller range '
+                'or recompile SQLite limits as  described at '
+                'https://sqlite.org/limits.html'.format(len(cols)))
+
+        new.table = new.dblinks.by_layer(i).table()
+        new.table.create(cols)
+
+        index = 1
+        for a in data['features']:
+            insert = [''] * len(cols)
+            for item, value in a['properties'].iteritems():
+                insert[cols.index((item, 'VARCHAR'))] = value
+
+            insert[0] = index
+            index += 1
+            insert = tuple(insert)
+            try:
+                new.table.insert([insert], many=True)
+            except OperationalError:
+                raise OperationalError(
+                    'You have reached maximum number of columns. You should '
+                    'set an event_time with a smaller range or recompile '
+                    'SQLite limits as described at '
+                    'https://sqlite.org/limits.html'.format(len(cols)))
+
+        new.table.conn.commit()
+
+
+        # temp = open(grass.tempfile(), 'r+')
+        # temp.write(observation)
+        # temp.seek(0)
+        #
+        # try:
+        #     run_command('g.findfile',
+        #                 element='vector',
+        #                 file=options['output'])
+        #
+        #     run_command('db.in.ogr',
+        #                 input=temp.name,
+        #                 output=tableName,
+        #                 key='id',
+        #                 overwrite=True,
+        #                 quiet=True)
+        #     run_command('v.db.connect',
+        #                 map=options['output'],
+        #                 table=tableName,
+        #                 layer=i,
+        #                 key='id',
+        #                 flags='o')
+        # except:
+        #     try:
+        #         run_command('db.execute',
+        #                     sql='DROP TABLE %s' % options['output'].split('@')[0])
+        #     except:
+        #         pass
+        #
+        #     run_command('v.in.ogr',
+        #                 input=temp.name,
+        #                 output=options['output'],
+        #                 flags='o',
+        #                 quiet=True)
+        #
+        #     run_command('v.db.addcolumn',
+        #                 map=options['output'],
+        #                 columns='id integer')
+        #     run_command('v.db.update',
+        #                 map=options['output'],
+        #                 column='id',
+        #                 query_column='cat')
+        #
+        # temp.close()
+
+        i = i+1
 
 
 if __name__ == "__main__":
