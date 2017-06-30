@@ -124,6 +124,7 @@ from grass.script import core as grass
 from grass.pygrass.vector import VectorTopo
 from grass.pygrass.vector.geometry import Point
 from grass.pygrass.vector.table import Link
+from sqlite3 import OperationalError
 import json
 
 sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
@@ -260,8 +261,16 @@ def create_maps(parsed_obs, offering, layer, new):
                 if b != 'name':
                     cols.append((u'%s' % b, 'VARCHAR'))
 
+        if len(cols) > 2000:
+            grass.warning(
+                'Recommended number of columns is less than 2000, you have '
+                'reached {}\nYou should set an event_time with a smaller range '
+                'or recompile SQLite limits as  described at '
+                'https://sqlite.org/limits.html'.format(len(cols)))
+
         new.table = new.dblinks.by_layer(i).table()
         new.table.create(cols)
+
         index = 1
         for a in data['features']:
             insert = [''] * len(cols)
@@ -271,7 +280,14 @@ def create_maps(parsed_obs, offering, layer, new):
             insert[0] = index
             index += 1
             insert = tuple(insert)
-            new.table.insert([insert], many=True)
+            try:
+                new.table.insert([insert], many=True)
+            except OperationalError:
+                raise OperationalError(
+                    'You have reached maximum number of columns. You should '
+                    'set an event_time with a smaller range or recompile '
+                    'SQLite limits as described at '
+                    'https://sqlite.org/limits.html'.format(len(cols)))
 
         new.table.conn.commit()
 
