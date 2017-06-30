@@ -336,7 +336,6 @@ def create_maps(parsed_obs, offering, layer, new):
         #
         # temp.close()
 
-
         i = i+1
 
 
