@@ -146,6 +146,14 @@ def main():
     if any(flags.itervalues()):
         get_description(service)
 
+    if options['offering'] == '' or options['output'] == '':
+        if sys.version >= (3, 0):
+            sys.tracebacklimit = None
+        else:
+            sys.tracebacklimit = 0
+        raise AttributeError(
+            "You have to define any flags or use 'output' and 'offering' parameters to get the data")
+
     new = VectorTopo(options['output'])
     new.open('w')
 
@@ -211,14 +219,6 @@ def get_description(service):
 
 
 def handle_not_given_options(service, offering=None):
-    if offering == '' or options['output'] == '':
-        if sys.version >= (3, 0):
-            sys.tracebacklimit = None
-        else:
-            sys.tracebacklimit = 0
-        raise AttributeError(
-            "You have to define any flags or use 'output' and 'offering' parameters to get the data")
-
     if options['procedure'] == '':
         options['procedure'] = None
 
