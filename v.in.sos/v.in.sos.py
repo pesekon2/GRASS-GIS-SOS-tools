@@ -183,6 +183,8 @@ def main():
                 sys.tracebacklimit = None
             else:
                 sys.tracebacklimit = 0
+            new.close(build=False)
+            new.remove()
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
         create_maps(parsed_obs, off, layerscount, new)
