@@ -236,6 +236,7 @@ def handle_not_given_options(service, offering=None):
 
 def create_maps(parsed_obs, offering, layer, new):
     i = layer + 1
+    points = list()
 
     for key, observation in parsed_obs.iteritems():
 
@@ -249,10 +250,10 @@ def create_maps(parsed_obs, offering, layer, new):
 
         data = json.loads(observation)
 
-        points = list()
         for a in data['features']:
-            points.append(Point(*a['geometry']['coordinates']))
-            new.write(Point(*a['geometry']['coordinates']))
+            if [a['geometry']['coordinates']] not in points:
+                points.append([Point(*a['geometry']['coordinates'])])
+                new.write(Point(*a['geometry']['coordinates']))
 
         link = Link(layer=i, name=tableName, table=tableName, key='cat')
         new.dblinks.add(link)

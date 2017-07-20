@@ -245,8 +245,9 @@ def create_maps(parsed_obs, offering, layer):
 
         points = list()
         for a in data['features']:
-            points.append(Point(*a['geometry']['coordinates']))
-            new.write(Point(*a['geometry']['coordinates']))
+            if [a['geometry']['coordinates']] not in points:
+                points.append([Point(*a['geometry']['coordinates'])])
+                new.write(Point(*a['geometry']['coordinates']))
 
         index += 1
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
