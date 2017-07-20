@@ -155,9 +155,6 @@ def main():
         raise AttributeError(
             "You have to define any flags or use 'output' and 'offering' parameters to get the data")
 
-    new = VectorTopo(options['output'])
-    new.open('w')
-
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
         handle_not_given_options(service, off)
@@ -183,14 +180,10 @@ def main():
                 sys.tracebacklimit = None
             else:
                 sys.tracebacklimit = 0
-            new.close(build=False)
-            new.remove()
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
-        create_maps(parsed_obs, off, layerscount, new)
+        create_maps(parsed_obs, off, layerscount)
         layerscount += len(parsed_obs)
-
-    new.close()
 
     return 0
 
@@ -234,11 +227,20 @@ def handle_not_given_options(service, offering=None):
         options['event_time'] = '%s/%s' % (service[offering].begin_position, service[offering].end_position)
 
 
-def create_maps(parsed_obs, offering, layer, new):
+def create_maps(parsed_obs, offering, layer):
     index = layer
 
     for key, observation in parsed_obs.iteritems():
-
+        vectorName = key
+        if ':' in key:
+            vectorName = '_'.join(vectorName.split(':'))
+        if '-' in key:
+            vectorName = '_'.join(vectorName.split('-'))
+        if '.' in key:
+            vectorName = '_'.join(vectorName.split('.'))
+        new = VectorTopo('%s_%s_%s' % (options['output'], offering,
+                                       vectorName))
+        new.open('w')
         data = json.loads(observation)
 
         points = list()
@@ -281,6 +283,8 @@ def create_maps(parsed_obs, offering, layer, new):
                 'reached {}\nYou should set an event_time with a smaller range '
                 'or recompile SQLite limits as  described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
+
+        new.close()
 
 
 
