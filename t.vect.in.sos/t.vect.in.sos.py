@@ -139,7 +139,6 @@ def cleanup():
 
 def main():
     parsed_obs = dict()
-    layerscount = 0
 
     service = SensorObservationService(options['url'],
                                        version=options['version'])
@@ -182,8 +181,7 @@ def main():
                 sys.tracebacklimit = 0
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
-        create_maps(parsed_obs, off, layerscount)
-        layerscount += len(parsed_obs)
+        create_maps(parsed_obs, off)
 
     return 0
 
@@ -227,10 +225,11 @@ def handle_not_given_options(service, offering=None):
         options['event_time'] = '%s/%s' % (service[offering].begin_position, service[offering].end_position)
 
 
-def create_maps(parsed_obs, offering, layer):
-    index = layer
+def create_maps(parsed_obs, offering):
 
     for key, observation in parsed_obs.iteritems():
+        index = 1
+
         vectorName = key
         if ':' in key:
             vectorName = '_'.join(vectorName.split(':'))
@@ -249,7 +248,6 @@ def create_maps(parsed_obs, offering, layer):
                 points.append([Point(*a['geometry']['coordinates'])])
                 new.write(Point(*a['geometry']['coordinates']))
 
-        index += 1
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'VARCHAR')]
         for a in data['features']:
