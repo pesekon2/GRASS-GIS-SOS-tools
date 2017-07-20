@@ -294,51 +294,6 @@ def create_maps(parsed_obs, offering, layer, new):
 
         new.table.conn.commit()
 
-
-        # temp = open(grass.tempfile(), 'r+')
-        # temp.write(observation)
-        # temp.seek(0)
-        #
-        # try:
-        #     run_command('g.findfile',
-        #                 element='vector',
-        #                 file=options['output'])
-        #
-        #     run_command('db.in.ogr',
-        #                 input=temp.name,
-        #                 output=tableName,
-        #                 key='id',
-        #                 overwrite=True,
-        #                 quiet=True)
-        #     run_command('v.db.connect',
-        #                 map=options['output'],
-        #                 table=tableName,
-        #                 layer=i,
-        #                 key='id',
-        #                 flags='o')
-        # except:
-        #     try:
-        #         run_command('db.execute',
-        #                     sql='DROP TABLE %s' % options['output'].split('@')[0])
-        #     except:
-        #         pass
-        #
-        #     run_command('v.in.ogr',
-        #                 input=temp.name,
-        #                 output=options['output'],
-        #                 flags='o',
-        #                 quiet=True)
-        #
-        #     run_command('v.db.addcolumn',
-        #                 map=options['output'],
-        #                 columns='id integer')
-        #     run_command('v.db.update',
-        #                 map=options['output'],
-        #                 column='id',
-        #                 query_column='cat')
-        #
-        # temp.close()
-
         i = i+1
 
 
