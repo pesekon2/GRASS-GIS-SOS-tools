@@ -39,6 +39,11 @@
 #% description: Print begin and end timestamps for given url and offering
 #% guisection: SOS description
 #%end
+#%flag
+#% key: g
+#% description: Print informations in shell script style
+#% guisection: SOS description
+#%end
 #%option
 #% key: url
 #% type: string
@@ -188,26 +193,34 @@ def main():
 
 def get_description(service):
     if flags['o'] is True:
-        print('\nSOS offerings:')
+        if flags['g'] is False:
+            print('\nSOS offerings:')
         for offering in service.offerings:
             print(offering.name)
 
     if flags['v'] is True:
-        print('\nObserved properties of %s offering:' % options['offering'])
+        if flags['g'] is False:
+            print('\nObserved properties of '
+                  '{} offering:'.format(options['offering']))
         for observed_property in service[
             options['offering']].observed_properties:
             print(observed_property)
 
     if flags['p'] is True:
-        print('\nProcedures of %s offering:' % options['offering'])
+        if flags['g'] is False:
+            print('\nProcedures of {} offering:'.format(options['offering']))
         for procedure in service[options['offering']].procedures:
             print(procedure)
 
     if flags['t'] is True:
-        print('\nBegin timestamp, end timestamp of %s offering:' % options[
-            'offering'])
-        print('%s, %s' % (service[options['offering']].begin_position,
-                          service[options['offering']].end_position))
+        if flags['g'] is False:
+            print('\nBegin timestamp, end timestamp of '
+                  '{} offering:'.format(options['offering']))
+            print('{}, {}'.format(service[options['offering']].begin_position,
+                                  service[options['offering']].end_position))
+        else:
+            print('start_time={}'.format(service[options['offering']].begin_position))
+            print('end_time={}'.format(service[options['offering']].end_position))
 
     sys.exit(0)
 
