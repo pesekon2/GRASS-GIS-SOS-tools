@@ -262,7 +262,7 @@ def create_maps(parsed_obs, offering):
                 new.write(Point(*a['geometry']['coordinates']))
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
-                (u'value', 'VARCHAR')]
+                (u'value', 'DOUBLE')]
         for a in data['features']:
             name = a['properties']['name']
             for timestamp, value in a['properties'].iteritems():
@@ -286,7 +286,6 @@ def create_maps(parsed_obs, offering):
                     new.table.conn.commit()
 
                     index += 1
-
 
 
         if len(cols) > 2000:

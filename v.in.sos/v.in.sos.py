@@ -275,7 +275,7 @@ def create_maps(parsed_obs, offering, layer, new):
         for a in data['features']:
             for b in a['properties'].keys():
                 if b != 'name':
-                    cols.append((u'%s' % b, 'VARCHAR'))
+                    cols.append((u'%s' % b, 'DOUBLE'))
 
         if len(cols) > 2000:
             grass.warning(
@@ -291,7 +291,11 @@ def create_maps(parsed_obs, offering, layer, new):
         for a in data['features']:
             insert = [''] * len(cols)
             for item, value in a['properties'].iteritems():
-                insert[cols.index((item, 'VARCHAR'))] = value
+                if item != 'name':
+                    insert[cols.index((item, 'DOUBLE'))] = value
+                else:
+                    insert[cols.index((item, 'VARCHAR'))] = value
+
 
             insert[0] = index
             index += 1
