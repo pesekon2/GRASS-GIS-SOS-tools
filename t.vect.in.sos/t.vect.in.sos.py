@@ -4,7 +4,7 @@
 #
 # MODULE:	    t.vect.in.sos
 # AUTHOR(S):	Ondrej Pesek <pesej.ondrek@gmail.com>
-# PURPOSE:	    Import data from SOS server as a vector layer to GRASS GIS
+# PURPOSE:	    Import data from SOS server as space temporal maps to GRASS
 # COPYRIGHT:	(C) 2017 Ondrej Pesek and the GRASS Development Team
 #
 #		This program is free software under the GNU General
@@ -14,8 +14,9 @@
 #############################################################################
 
 #%module
-#% description: Import data from SOS server as a vector layer to GRASS GIS.
+#% description: Import data from SOS server as space temporal maps to GRASS.
 #% keyword: vector
+#% keyword: temporal
 #% keyword: import
 #% keyword: SOS
 #%end
@@ -50,7 +51,10 @@
 #% description: Base URL starting with 'http' and ending in '?'
 #% required: yes
 #%end
-#%option G_OPT_V_OUTPUT
+#%option
+#% key: output
+#% type: string
+#% description: prefix for output maps
 #% required: no
 #% guisection: Request
 #%end
