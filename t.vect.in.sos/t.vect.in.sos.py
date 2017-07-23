@@ -54,7 +54,7 @@
 #%option
 #% key: output
 #% type: string
-#% description: prefix for output maps
+#% description: Prefix for output maps
 #% required: no
 #% guisection: Request
 #%end
@@ -128,11 +128,13 @@
 
 import sys
 from owslib.sos import SensorObservationService
-from grass.script import parser, run_command
+from grass.script import parser, run_command, overwrite
 from grass.script import core as grass
+from grass.script import vector
 from grass.pygrass.vector import VectorTopo
 from grass.pygrass.vector.geometry import Point
 from grass.pygrass.vector.table import Link
+import grass.temporal as tgis
 from sqlite3 import OperationalError
 import json
 
@@ -190,7 +192,8 @@ def main():
                 sys.tracebacklimit = 0
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
-        create_maps(parsed_obs, off)
+        mapsList = create_maps(parsed_obs, off)
+        create_temporal(mapsList)
 
     return 0
 
@@ -243,6 +246,7 @@ def handle_not_given_options(service, offering=None):
 
 
 def create_maps(parsed_obs, offering):
+    mapsList = dict()
 
     for key, observation in parsed_obs.iteritems():
         index = 1
@@ -300,7 +304,49 @@ def create_maps(parsed_obs, offering):
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
         new.close()
+        mapsList.update({new.name: cols})
 
+    return mapsList
+
+def create_temporal(mapsList):
+    tgis.init()
+    dbif = tgis.SQLDatabaseInterfaceConnection()
+    dbif.connect()
+
+    #out_sp = tgis.check_new_stds(options['output'], 'stvds',
+    #                             overwrite=overwrite())
+
+    vector_db = vector.vector_db(
+        'grida_GRIDA_urn_ogc_def_parameter_x_istsos_1_0_meteo_air_humidity_relative')
+
+    #if vector_db:
+    #    layers = '1,'
+    #else:
+    #    layers = ''
+    layers = ''
+    first = True
+
+    for layer in range(len(vector_db)):
+        layer += 1
+        #if vector_db and layer in vector_db and vector_db[layer]['layer'] == layer:
+        #    continue
+        if first:
+            layers += '%i' % layer
+            first = False
+        else:
+            layers += ',%i' % layer
+
+    #run_command('v.category', input='grida_GRIDA_urn_ogc_def_parameter_x_istsos_1_0_meteo_air_humidity_relative',
+    #            layer=layers, output=options['output'],
+    #            option='transfer', overwrite=True)
+
+    import pdb; pdb.set_trace()
+    out_sp = tgis.open_new_stds('test', 'stvds',
+                                temporaltype='absolute', title='title',
+                                descr='desc', dbif=dbif,
+                                semantic='mean', overwrite=True)
+    pdb.set_trace()
+    print('**** DONE ****')
 
 if __name__ == "__main__":
     options, flags = parser()
