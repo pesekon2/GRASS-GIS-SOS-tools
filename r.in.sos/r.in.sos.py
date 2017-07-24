@@ -183,6 +183,7 @@ def get_map_layers():
 
 
 def handle_not_given_options(service, offering=None):
+    # DUPLICATED: Also in v.in.sos
     if options['procedure'] == '':
         options['procedure'] = None
 
