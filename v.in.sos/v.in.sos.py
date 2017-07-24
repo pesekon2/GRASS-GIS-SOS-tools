@@ -207,29 +207,29 @@ def get_description(service):
         for offering in service.offerings:
             print(offering.id)
 
-    if flags['v'] is True:
-        if flags['g'] is False:
-            print('Observed properties of '
-                  '{} offering:'.format(options['offering']))
-        for observed_property in service[
-            options['offering']].observed_properties:
-            print(observed_property)
+    for offering in options['offering'].split(','):
+        if flags['v'] is True:
+            if flags['g'] is False:
+                print('Observed properties of '
+                      '{} offering:'.format(offering))
+            for observed_property in service[offering].observed_properties:
+                print(observed_property)
 
-    if flags['p'] is True:
-        if flags['g'] is False:
-            print('Procedures of {} offering:'.format(options['offering']))
-        for procedure in service[options['offering']].procedures:
-            print(procedure.split(':')[-1])
+        if flags['p'] is True:
+            if flags['g'] is False:
+                print('Procedures of {} offering:'.format(offering))
+            for procedure in service[offering].procedures:
+                print(procedure.split(':')[-1])
 
-    if flags['t'] is True:
-        if flags['g'] is False:
-            print('Begin timestamp, end timestamp of '
-                  '{} offering:'.format(options['offering']))
-            print('{}, {}'.format(service[options['offering']].begin_position,
-                                  service[options['offering']].end_position))
-        else:
-            print('start_time={}'.format(service[options['offering']].begin_position))
-            print('end_time={}'.format(service[options['offering']].end_position))
+        if flags['t'] is True:
+            if flags['g'] is False:
+                print('Begin timestamp, end timestamp of '
+                      '{} offering:'.format(options['offering']))
+                print('{}, {}'.format(service[offering].begin_position,
+                                      service[offering].end_position))
+            else:
+                print('start_time={}'.format(service[offering].begin_position))
+                print('end_time={}'.format(service[offering].end_position))
 
     sys.exit(0)
 
