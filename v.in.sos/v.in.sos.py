@@ -203,13 +203,13 @@ def main():
 def get_description(service):
     if flags['o'] is True:
         if flags['g'] is False:
-            print('\nSOS offerings:')
+            print('SOS offerings:')
         for offering in service.offerings:
-            print(offering.name)
+            print(offering.id)
 
     if flags['v'] is True:
         if flags['g'] is False:
-            print('\nObserved properties of '
+            print('Observed properties of '
                   '{} offering:'.format(options['offering']))
         for observed_property in service[
             options['offering']].observed_properties:
@@ -217,13 +217,13 @@ def get_description(service):
 
     if flags['p'] is True:
         if flags['g'] is False:
-            print('\nProcedures of {} offering:'.format(options['offering']))
+            print('Procedures of {} offering:'.format(options['offering']))
         for procedure in service[options['offering']].procedures:
-            print(procedure)
+            print(procedure.split(':')[-1])
 
     if flags['t'] is True:
         if flags['g'] is False:
-            print('\nBegin timestamp, end timestamp of '
+            print('Begin timestamp, end timestamp of '
                   '{} offering:'.format(options['offering']))
             print('{}, {}'.format(service[options['offering']].begin_position,
                                   service[options['offering']].end_position))
