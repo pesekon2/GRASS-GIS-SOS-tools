@@ -30,7 +30,7 @@ def xml2geojson(xml_file, observedProperty):
             elif 'field' in item.tag:
                 valuesNames.append(item.attrib['name'])
             elif 'Quantity' in item.tag:
-                if item.attrib['definition'] == observedProperty:
+                if observedProperty in item.attrib['definition']:
                     wantedIndex = currentIndex
                 else:
                     currentIndex += 1
