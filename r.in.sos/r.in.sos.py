@@ -171,19 +171,14 @@ def get_map_layers():
         procedure, observed_properties, event_time = handle_not_given_options(
             service, off)
         for obs in observed_properties.split(','):
-            layersList.append('{}_{}_{}'.format(options['output'], off, obs))
-
-    i = 0
-    for layer in layersList:
-        if ':' in layer:
-            layer = '_'.join(layer.split(':'))
-        if '-' in layer:
-            layer = '_'.join(layer.split('-'))
-        if '.' in layer:
-            layer = '_'.join(layer.split('.'))
-
-        layersList[i] = layer
-        i += 1
+            layer = '{}_{}_{}'.format(options['output'], off, obs)
+            if ':' in layer:
+                layer = '_'.join(layer.split(':'))
+            if '-' in layer:
+                layer = '_'.join(layer.split('-'))
+            if '.' in layer:
+                layer = '_'.join(layer.split('.'))
+            layersList.append(layer)
 
     return layersList
 
