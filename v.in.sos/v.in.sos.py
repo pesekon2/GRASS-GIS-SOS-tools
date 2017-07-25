@@ -123,14 +123,19 @@
 
 
 import sys
-from owslib.sos import SensorObservationService
-from grass.script import parser, run_command
-from grass.script import core as grass
-from grass.pygrass.vector import VectorTopo
-from grass.pygrass.vector.geometry import Point
-from grass.pygrass.vector.table import Link
-from sqlite3 import OperationalError
 import json
+from sqlite3 import OperationalError
+try:
+    from owslib.sos import SensorObservationService
+    from grass.script import parser, run_command
+    from grass.script import core as grass
+    from grass.pygrass.vector import VectorTopo
+    from grass.pygrass.vector.geometry import Point
+    from grass.pygrass.vector.table import Link
+except ImportError as e:
+    sys.stderr.write(
+        'Error importing internal libs. Did you run the script from GRASS GIS?\n')
+    raise(e)
 
 sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
 # TODO: Incorporate format conversions into OWSLib and don't use absolute path
