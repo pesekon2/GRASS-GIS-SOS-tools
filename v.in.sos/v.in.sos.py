@@ -170,23 +170,25 @@ def main():
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
-        handle_not_given_options(service, off)
-        options['event_time'] = 'T'.join(options['event_time'].split(' '))
+        procedure, observed_properties, event_time = handle_not_given_options(
+            service, off)
+        event_time = 'T'.join(event_time.split(' '))
+
 
         obs = service.get_observation(offerings=[off],
                                       responseFormat=options['response_format'],
-                                      observedProperties=[options['observed_properties']],
-                                      procedure=options['procedure'],
-                                      eventTime=options['event_time'],
+                                      observedProperties=[observed_properties],
+                                      procedure=procedure,
+                                      eventTime=event_time,
                                       username=options['username'],
                                       password=options['password'])
 
         try:
             if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-                for property in options['observed_properties'].split(','):
+                for property in observed_properties.split(','):
                     parsed_obs.update({property: xml2geojson(obs, property)})
             elif str(options['response_format']) == 'application/json':
-                for property in options['observed_properties'].split(','):
+                for property in observed_properties.split(','):
                     parsed_obs.update({property: json2geojson(obs, property)})
         except AttributeError:
             if sys.version >= (3, 0):
@@ -241,15 +243,25 @@ def get_description(service):
 
 def handle_not_given_options(service, offering=None):
     if options['procedure'] == '':
-        options['procedure'] = None
+        procedure = None
+    else:
+        procedure = options['procedure']
 
     if options['observed_properties'] == '':
+        observed_properties = ''
         for observed_property in service[offering].observed_properties:
-            options['observed_properties'] += '%s,' % observed_property
-        options['observed_properties'] = options['observed_properties'][:-1]
+            observed_properties += '{},'.format(observed_property)
+        observed_properties = observed_properties[:-1]
+    else:
+        observed_properties = options['observed_properties']
 
     if options['event_time'] == '':
-        options['event_time'] = '%s/%s' % (service[offering].begin_position, service[offering].end_position)
+        event_time = '{}/{}'.format(service[offering].begin_position,
+                                    service[offering].end_position)
+    else:
+        event_time = options['event_time']
+
+    return procedure, observed_properties, event_time
 
 
 def create_maps(parsed_obs, offering, layer, new):

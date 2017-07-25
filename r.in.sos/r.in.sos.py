@@ -165,11 +165,12 @@ def get_map_layers():
                                        version=options['version'])
     layersList = list()
 
-    options['event_time'] = 'T'.join(options['event_time'].split(' '))
+    event_time = 'T'.join(options['event_time'].split(' '))
 
     for off in options['offering'].split(','):
-        handle_not_given_options(service, off)
-        for obs in options['observed_properties'].split(','):
+        procedure, observed_properties, event_time = handle_not_given_options(
+            service, off)
+        for obs in observed_properties.split(','):
             layersList.append('{}_{}_{}'.format(options['output'], off, obs))
 
     i = 0
@@ -190,15 +191,25 @@ def get_map_layers():
 def handle_not_given_options(service, offering=None):
     # DUPLICATED: Also in v.in.sos
     if options['procedure'] == '':
-        options['procedure'] = None
+        procedure = None
+    else:
+        procedure = options['procedure']
 
     if options['observed_properties'] == '':
+        observed_properties = ''
         for observed_property in service[offering].observed_properties:
-            options['observed_properties'] += '%s,' % observed_property
-        options['observed_properties'] = options['observed_properties'][:-1]
+            observed_properties += '{},'.format(observed_property)
+        observed_properties = observed_properties[:-1]
+    else:
+        observed_properties = options['observed_properties']
 
     if options['event_time'] == '':
-        options['event_time'] = '%s/%s' % (service[offering].begin_position, service[offering].end_position)
+        event_time = '{}/{}'.format(service[offering].begin_position,
+                                    service[offering].end_position)
+    else:
+        event_time = options['event_time']
+
+    return procedure, observed_properties, event_time
 
 
 def create_maps():
