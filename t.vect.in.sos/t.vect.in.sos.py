@@ -199,7 +199,7 @@ def main():
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
         mapsList = create_maps(parsed_obs, off)
-        create_temporal(mapsList)
+        # create_temporal(mapsList)
 
     return 0
 
@@ -264,28 +264,28 @@ def handle_not_given_options(service, offering=None):
 
 
 def create_maps(parsed_obs, offering):
-    mapsList = dict()
+    mapsList = list()
 
     for key, observation in parsed_obs.iteritems():
-        index = 1
+        #index = 1
 
-        vectorName = key
-        if ':' in key:
-            vectorName = '_'.join(vectorName.split(':'))
-        if '-' in key:
-            vectorName = '_'.join(vectorName.split('-'))
-        if '.' in key:
-            vectorName = '_'.join(vectorName.split('.'))
-        new = VectorTopo('%s_%s_%s' % (options['output'], offering,
-                                       vectorName))
-        new.open('w')
+        # vectorName = key
+        # if ':' in key:
+        #     vectorName = '_'.join(vectorName.split(':'))
+        # if '-' in key:
+        #     vectorName = '_'.join(vectorName.split('-'))
+        # if '.' in key:
+        #     vectorName = '_'.join(vectorName.split('.'))
+        #new = VectorTopo('%s_%s_%s' % (options['output'], offering,
+        #                               vectorName))
+        #new.open('w')
         data = json.loads(observation)
 
-        points = list()
-        for a in data['features']:
-            if [a['geometry']['coordinates']] not in points:
-                points.append([Point(*a['geometry']['coordinates'])])
-                new.write(Point(*a['geometry']['coordinates']))
+        # points = list()
+        # for a in data['features']:
+        #     if [a['geometry']['coordinates']] not in points:
+        #         points.append([Point(*a['geometry']['coordinates'])])
+        #         new.write(Point(*a['geometry']['coordinates']))
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
@@ -302,16 +302,23 @@ def create_maps(parsed_obs, offering):
                     if '.' in tableName:
                         tableName = '_'.join(tableName.split('.'))
 
-                    link = Link(layer=index, name=tableName, table=tableName,
+                    new = VectorTopo(tableName)
+                    new.open('w')
+                    new.write(Point(*a['geometry']['coordinates']))
+
+
+                    link = Link(layer=1, name=tableName, table=tableName, #index, name=tableName, table=tableName,
                                 key='cat')
                     new.dblinks.add(link)
 
-                    new.table = new.dblinks.by_layer(index).table()
+                    new.table = new.dblinks.by_layer(1).table()#index).table()
                     new.table.create(cols)
                     new.table.insert([(1, name, value)], many=True)
                     new.table.conn.commit()
 
-                    index += 1
+                    #index += 1
+                    new.close()
+                    mapsList.append(new.name)
 
 
         if len(cols) > 2000:
@@ -321,8 +328,8 @@ def create_maps(parsed_obs, offering):
                 'or recompile SQLite limits as  described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
-        new.close()
-        mapsList.update({new.name: cols})
+        # new.close()
+
 
     return mapsList
 
