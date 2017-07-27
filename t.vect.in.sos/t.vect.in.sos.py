@@ -199,6 +199,7 @@ def main():
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
         mapsList = create_maps(parsed_obs, off)
+
         # create_temporal(mapsList)
 
     return 0
@@ -267,15 +268,24 @@ def create_maps(parsed_obs, offering):
     mapsList = list()
 
     for key, observation in parsed_obs.iteritems():
+
+        stSuffix = key
+        if ':' in key:
+            stSuffix = '_'.join(stSuffix.split(':'))
+        if '-' in key:
+            stSuffix = '_'.join(stSuffix.split('-'))
+        if '.' in key:
+            stSuffix = '_'.join(stSuffix.split('.'))
+
+        run_command('t.create',
+                    output='{}_{}_{}'.format(options['output'], offering,
+                                             stSuffix),
+                    type='stvds',
+                    title='Dataset for offering {} and observed '
+                          'property {}'.format(offering, stSuffix),
+                    description='Vector space time dataset')
         #index = 1
 
-        # vectorName = key
-        # if ':' in key:
-        #     vectorName = '_'.join(vectorName.split(':'))
-        # if '-' in key:
-        #     vectorName = '_'.join(vectorName.split('-'))
-        # if '.' in key:
-        #     vectorName = '_'.join(vectorName.split('.'))
         #new = VectorTopo('%s_%s_%s' % (options['output'], offering,
         #                               vectorName))
         #new.open('w')
@@ -333,45 +343,45 @@ def create_maps(parsed_obs, offering):
 
     return mapsList
 
-def create_temporal(mapsList):
-    tgis.init()
-    dbif = tgis.SQLDatabaseInterfaceConnection()
-    dbif.connect()
-
-    #out_sp = tgis.check_new_stds(options['output'], 'stvds',
-    #                             overwrite=overwrite())
-
-    vector_db = vector.vector_db(
-        'grida_GRIDA_urn_ogc_def_parameter_x_istsos_1_0_meteo_air_humidity_relative')
-
-    #if vector_db:
-    #    layers = '1,'
-    #else:
-    #    layers = ''
-    layers = ''
-    first = True
-
-    for layer in range(len(vector_db)):
-        layer += 1
-        #if vector_db and layer in vector_db and vector_db[layer]['layer'] == layer:
-        #    continue
-        if first:
-            layers += '%i' % layer
-            first = False
-        else:
-            layers += ',%i' % layer
-
-    #run_command('v.category', input='grida_GRIDA_urn_ogc_def_parameter_x_istsos_1_0_meteo_air_humidity_relative',
-    #            layer=layers, output=options['output'],
-    #            option='transfer', overwrite=True)
-
-    import pdb; pdb.set_trace()
-    out_sp = tgis.open_new_stds('test', 'stvds',
-                                temporaltype='absolute', title='title',
-                                descr='desc', dbif=dbif,
-                                semantic='mean', overwrite=True)
-    pdb.set_trace()
-    print('**** DONE ****')
+# def create_temporal(mapsList):
+    # tgis.init()
+    # dbif = tgis.SQLDatabaseInterfaceConnection()
+    # dbif.connect()
+    #
+    # #out_sp = tgis.check_new_stds(options['output'], 'stvds',
+    # #                             overwrite=overwrite())
+    #
+    # vector_db = vector.vector_db(
+    #     'grida_GRIDA_urn_ogc_def_parameter_x_istsos_1_0_meteo_air_humidity_relative')
+    #
+    # #if vector_db:
+    # #    layers = '1,'
+    # #else:
+    # #    layers = ''
+    # layers = ''
+    # first = True
+    #
+    # for layer in range(len(vector_db)):
+    #     layer += 1
+    #     #if vector_db and layer in vector_db and vector_db[layer]['layer'] == layer:
+    #     #    continue
+    #     if first:
+    #         layers += '%i' % layer
+    #         first = False
+    #     else:
+    #         layers += ',%i' % layer
+    #
+    # #run_command('v.category', input='grida_GRIDA_urn_ogc_def_parameter_x_istsos_1_0_meteo_air_humidity_relative',
+    # #            layer=layers, output=options['output'],
+    # #            option='transfer', overwrite=True)
+    #
+    # import pdb; pdb.set_trace()
+    # out_sp = tgis.open_new_stds('test', 'stvds',
+    #                             temporaltype='absolute', title='title',
+    #                             descr='desc', dbif=dbif,
+    #                             semantic='mean', overwrite=True)
+    # pdb.set_trace()
+    # print('**** DONE ****')
 
 if __name__ == "__main__":
     options, flags = parser()
