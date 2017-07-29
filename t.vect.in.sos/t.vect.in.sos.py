@@ -170,6 +170,8 @@ def main():
         raise AttributeError(
             "You have to define any flags or use 'output' and 'offering' parameters to get the data")
 
+    mapsDict = dict()
+
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
         procedure, observed_properties, event_time = handle_not_given_options(
@@ -198,9 +200,10 @@ def main():
                 sys.tracebacklimit = 0
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
-        mapsList = create_maps(parsed_obs, off)
+        mapsDict.update(create_maps(parsed_obs, off))
+        # print(mapsDict)
 
-        # create_temporal(mapsList)
+    # create_temporal(mapsDict)
 
     return 0
 
@@ -265,9 +268,12 @@ def handle_not_given_options(service, offering=None):
 
 
 def create_maps(parsed_obs, offering):
-    mapsList = list()
+    mapsDict = {offering: []}
+    index = 0
 
     for key, observation in parsed_obs.iteritems():
+
+        mapsDict[offering].append({key: []})
 
         stSuffix = key
         if ':' in key:
@@ -284,7 +290,6 @@ def create_maps(parsed_obs, offering):
                     title='Dataset for offering {} and observed '
                           'property {}'.format(offering, stSuffix),
                     description='Vector space time dataset')
-        #index = 1
 
         #new = VectorTopo('%s_%s_%s' % (options['output'], offering,
         #                               vectorName))
@@ -326,9 +331,24 @@ def create_maps(parsed_obs, offering):
                     new.table.insert([(1, name, value)], many=True)
                     new.table.conn.commit()
 
-                    #index += 1
                     new.close()
-                    mapsList.append(new.name)
+                    mapsDict[offering][index][key].append(new.name)
+                    # mapsDict.append({offering: {key: [new.name]}})
+
+                    # print(timestamp, tableName)
+                    formattedTimestamp = get_temporal_formatted_timestamp(
+                        timestamp)
+                    run_command('v.timestamp',
+                                map=tableName,
+                                date=formattedTimestamp)
+                    run_command('t.register',
+                                input='{}_{}_{}'.format(options['output'],
+                                                        offering,
+                                                        stSuffix),
+                                maps=tableName,
+                                type='vector')
+
+        index += 1
 
 
         if len(cols) > 2000:
@@ -340,10 +360,64 @@ def create_maps(parsed_obs, offering):
 
         # new.close()
 
+    return mapsDict
 
-    return mapsList
 
-# def create_temporal(mapsList):
+def get_temporal_formatted_timestamp(originalTimestamp):
+
+    day = originalTimestamp[7:9]
+    if day[0] == '0':
+        day = day[1]
+
+    if originalTimestamp[5:7] == '01':
+        month = 'jan'
+    elif originalTimestamp[5:7] == '02':
+        month = 'feb'
+    elif originalTimestamp[5:7] == '03':
+        month = 'mar'
+    elif originalTimestamp[5:7] == '04':
+        month = 'apr'
+    elif originalTimestamp[5:7] == '05':
+        month = 'may'
+    elif originalTimestamp[5:7] == '06':
+        month = 'jun'
+    elif originalTimestamp[5:7] == '07':
+        month = 'jul'
+    elif originalTimestamp[5:7] == '08':
+        month = 'aug'
+    elif originalTimestamp[5:7] == '09':
+        month = 'sep'
+    elif originalTimestamp[5:7] == '10':
+        month = 'oct'
+    elif originalTimestamp[5:7] == '11':
+        month = 'nov'
+    elif originalTimestamp[5:7] == '12':
+        month = 'dec'
+
+    hour = originalTimestamp[10:12]
+    if hour[0] == '0':
+        hour = hour[1]
+
+    formattedTimestamp = '{} {} {} {}:{}:{}+{}'.format(
+        day, month, originalTimestamp[1:5], hour, originalTimestamp[12:14],
+        originalTimestamp[14:16], originalTimestamp[16:])
+
+    return formattedTimestamp
+
+
+def create_temporal(mapsDict):
+
+    for off in mapsDict.keys():
+        i = 0
+        for obsProp in mapsDict[off]:
+            run_command('t.register',
+                        input='{}_{}_{}'.format(options['output'],
+                                                off, obsProp.keys()[0]),
+                        maps=obsProp.values(),
+                        type='vector')
+            i += 1
+
+
     # tgis.init()
     # dbif = tgis.SQLDatabaseInterfaceConnection()
     # dbif.connect()
