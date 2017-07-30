@@ -139,50 +139,122 @@ except ImportError as e:
         'Error importing internal libs. Did you run the script from GRASS GIS?\n')
     raise(e)
 
+sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
+# TODO: Incorporate format conversions into OWSLib and don't use absolute path
+from xml2geojson import xml2geojson
+from json2geojson import json2geojson
+
+
 def cleanup():
     pass
 
 
 def main():
     fl = ''
+    parsed_obs = dict()
+    service = SensorObservationService(options['url'],
+                                       version=options['version'])
 
-    for f, i in flags.iteritems():
-        if i is True:
-            fl += f
+    if any(flags.itervalues()):
+        get_description(service)
 
-    run_command('v.in.sos', flags=fl, **options)
+    if options['offering'] == '' or options['output'] == '':
+        if sys.version >= (3, 0):
+            sys.tracebacklimit = None
+        else:
+            sys.tracebacklimit = 0
+        raise AttributeError(
+            "You have to define any flags or use 'output' and 'offering' parameters to get the data")
 
-    if len(fl) > 0:
-        return 0
+    for off in options['offering'].split(','):
+        # TODO: Find better way than iteration (at best OWSLib upgrade)
+        procedure, observed_properties, event_time = handle_not_given_options(
+            service, off)
+        event_time = 'T'.join(event_time.split(' '))
 
-    layers = get_map_layers()
+        obs = service.get_observation(offerings=[off],
+                                      responseFormat=options['response_format'],
+                                      observedProperties=[observed_properties],
+                                      procedure=procedure,
+                                      eventTime=event_time,
+                                      username=options['username'],
+                                      password=options['password'])
 
-    create_maps(layers)
+        try:
+            if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+                for property in observed_properties.split(','):
+                    parsed_obs.update({property: xml2geojson(obs, property)})
+            elif str(options['response_format']) == 'application/json':
+                for property in observed_properties.split(','):
+                    parsed_obs.update({property: json2geojson(obs, property)})
+        except AttributeError:
+            if sys.version >= (3, 0):
+                sys.tracebacklimit = None
+            else:
+                sys.tracebacklimit = 0
+            raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
+
+        create_maps(parsed_obs, off)
 
     return 0
 
 
-def get_map_layers():
-    service = SensorObservationService(options['url'],
-                                       version=options['version'])
-    layersList = list()
+def get_description(service):
+    # DUPLICATED: Also in v.in.sos
+    if flags['o'] is True:
+        if flags['g'] is False:
+            print('SOS offerings:')
+        for offering in service.offerings:
+            print(offering.id)
 
-    event_time = 'T'.join(options['event_time'].split(' '))
+    for offering in options['offering'].split(','):
+        if flags['v'] is True:
+            if flags['g'] is False:
+                print('Observed properties of '
+                      '{} offering:'.format(offering))
+            for observed_property in service[offering].observed_properties:
+                print(observed_property)
 
-    for off in options['offering'].split(','):
-        procedure, observed_properties, event_time = handle_not_given_options(
-            service, off)
-        for obs in observed_properties.split(','):
-            layer = '{}_{}_{}'.format(options['output'], off, obs)
-            if ':' in layer:
-                layer = '_'.join(layer.split(':'))
-            if '-' in layer:
-                layer = '_'.join(layer.split('-'))
-            if '.' in layer:
-                layer = '_'.join(layer.split('.'))
-            layersList.append(layer)
+        if flags['p'] is True:
+            if flags['g'] is False:
+                print('Procedures of {} offering:'.format(offering))
+            for procedure in service[offering].procedures:
+                print(procedure.split(':')[-1])
 
-    return layersList
+        if flags['t'] is True:
+            if flags['g'] is False:
+                print('Begin timestamp, end timestamp of '
+                      '{} offering:'.format(options['offering']))
+                print('{}, {}'.format(service[offering].begin_position,
+                                      service[offering].end_position))
+            else:
+                print('start_time={}'.format(service[offering].begin_position))
+                print('end_time={}'.format(service[offering].end_position))
+
+    sys.exit(0)
+
+
+# def get_map_layers():
+#     service = SensorObservationService(options['url'],
+#                                        version=options['version'])
+#     layersList = list()
+#
+#     event_time = 'T'.join(options['event_time'].split(' '))
+#
+#     for off in options['offering'].split(','):
+#         procedure, observed_properties, event_time = handle_not_given_options(
+#             service, off)
+#         for obs in observed_properties.split(','):
+#             layer = '{}_{}_{}'.format(options['output'], off, obs)
+#             if ':' in layer:
+#                 layer = '_'.join(layer.split(':'))
+#             if '-' in layer:
+#                 layer = '_'.join(layer.split('-'))
+#             if '.' in layer:
+#                 layer = '_'.join(layer.split('.'))
+#             layersList.append(layer)
+#
+#     return layersList
 
 
 def handle_not_given_options(service, offering=None):
@@ -209,9 +281,46 @@ def handle_not_given_options(service, offering=None):
     return procedure, observed_properties, event_time
 
 
-def create_maps(layers):
+def create_maps(parsed_obs, offering):
 
-    print('TODO: Use v.to.rast and delete vector maps')
+    for key, observation in parsed_obs.iteritems():
+        data = json.loads(observation)
+
+        cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
+                (u'value', 'DOUBLE')]
+        for a in data['features']:
+            name = a['properties']['name']
+            for timestamp, value in a['properties'].iteritems():
+                if timestamp != 'name':
+                    tableName = '{}_{}_{}_{}'.format(options['output'],
+                                                     offering, key,
+                                                     timestamp)
+                    if ':' in tableName:
+                        tableName = '_'.join(tableName.split(':'))
+                    if '-' in tableName:
+                        tableName = '_'.join(tableName.split('-'))
+                    if '.' in tableName:
+                        tableName = '_'.join(tableName.split('.'))
+
+                    new = VectorTopo(tableName)
+                    new.open('w')
+                    new.write(Point(*a['geometry']['coordinates']))
+
+                    link = Link(layer=1, name=tableName, table=tableName,
+                                key='cat')
+                    new.dblinks.add(link)
+
+                    new.table = new.dblinks.by_layer(1).table()
+                    new.table.create(cols)
+                    new.table.insert([(1, name, value)], many=True)
+                    new.table.conn.commit()
+
+                    new.close()
+
+                    run_command('v.to.rast', input=tableName, output=tableName,
+                                use='attr', attribute_column='value')
+
+                    # TODO: Delete vector maps if not needed
 
 
 if __name__ == "__main__":
