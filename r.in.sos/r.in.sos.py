@@ -151,11 +151,13 @@ def main():
             fl += f
 
     run_command('v.in.sos', flags=fl, **options)
-    # TODO: Check if there was printed description or computed vectors
+
+    if len(fl) > 0:
+        return 0
 
     layers = get_map_layers()
 
-    create_maps()
+    create_maps(layers)
 
     return 0
 
@@ -207,7 +209,8 @@ def handle_not_given_options(service, offering=None):
     return procedure, observed_properties, event_time
 
 
-def create_maps():
+def create_maps(layers):
+
     print('TODO: Use v.to.rast and delete vector maps')
 
 
