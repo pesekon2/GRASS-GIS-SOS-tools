@@ -140,7 +140,8 @@ try:
     from grass.pygrass.vector.table import Link
 except ImportError as e:
     sys.stderr.write(
-        'Error importing internal libs. Did you run the script from GRASS GIS?\n')
+        'Error importing internal libs. Did you run the script from GRASS '
+        'GIS?\n')
     raise(e)
 
 sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
@@ -168,7 +169,8 @@ def main():
         else:
             sys.tracebacklimit = 0
         raise AttributeError(
-            "You have to define any flags or use 'output' and 'offering' parameters to get the data")
+            "You have to define any flags or use 'output' and 'offering' "
+            "parameters to get the data")
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
@@ -176,16 +178,15 @@ def main():
             service, off)
         event_time = 'T'.join(event_time.split(' '))
 
-        obs = service.get_observation(offerings=[off],
-                                      responseFormat=options['response_format'],
-                                      observedProperties=[observed_properties],
-                                      procedure=procedure,
-                                      eventTime=event_time,
-                                      username=options['username'],
-                                      password=options['password'])
+        obs = service.get_observation(
+            offerings=[off], responseFormat=options['response_format'],
+            observedProperties=[observed_properties], procedure=procedure,
+            eventTime=event_time, username=options['username'],
+            password=options['password'])
 
         try:
-            if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+            if options['version'] in ['1.0.0', '1.0'] and \
+              str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
                 for property in observed_properties.split(','):
                     parsed_obs.update({property: xml2geojson(obs, property)})
             elif str(options['response_format']) == 'application/json':
@@ -196,7 +197,9 @@ def main():
                 sys.tracebacklimit = None
             else:
                 sys.tracebacklimit = 0
-            raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
+            raise AttributeError('There is no data, could you change the time '
+                                 'parameter, observed properties, procedures '
+                                 'or offerings')
 
         create_maps(parsed_obs, off)
 
