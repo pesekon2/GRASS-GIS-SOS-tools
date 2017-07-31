@@ -44,6 +44,10 @@
 #% description: Print informations in shell script style
 #% guisection: SOS description
 #%end
+#%flag
+#% key: f
+#% description: Force deletion of created intermediates vector maps
+#%end
 #%option
 #% key: url
 #% type: string
@@ -155,7 +159,7 @@ def main():
     service = SensorObservationService(options['url'],
                                        version=options['version'])
 
-    if any(flags.itervalues()):
+    if any(flags.itervalues()) and flags['f'] is False:
         get_description(service)
 
     if options['offering'] == '' or options['output'] == '':
@@ -320,7 +324,9 @@ def create_maps(parsed_obs, offering):
                     run_command('v.to.rast', input=tableName, output=tableName,
                                 use='attr', attribute_column='value')
 
-                    # TODO: Delete vector maps if not needed
+                    if flags['f'] is True:
+                        run_command('g.remove', 'f', type='vector',
+                                    name=tableName)
 
 
 if __name__ == "__main__":
