@@ -322,10 +322,13 @@ def create_maps(parsed_obs, offering):
                     new.table.insert([(1, name, value)], many=True)
                     new.table.conn.commit()
 
+                    import pdb
+                    pdb.set_trace()
                     new.close()
 
+                    run_command('g.region', vect=tableName)
                     run_command('v.to.rast', input=tableName, output=tableName,
-                                use='attr', attribute_column='value')
+                                use='attr', attribute_column='value', layer=-1)
 
                     if flags['f'] is True:
                         run_command('g.remove', 'f', type='vector',
