@@ -165,8 +165,10 @@ def main():
         raise AttributeError(
             "You have to define any flags or use 'output' and 'offering' parameters to get the data")
 
+    run_command('g.remove', 'f', type='vector',
+                name=options['output'])
     new = VectorTopo(options['output'])
-    new.open('w')
+    # new.open('w')
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
@@ -195,14 +197,14 @@ def main():
                 sys.tracebacklimit = None
             else:
                 sys.tracebacklimit = 0
-            new.close(build=False)
-            new.remove()
+            # new.close(build=False)
+            # new.remove()
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
         create_maps(parsed_obs, off, layerscount, new)
         layerscount += len(parsed_obs)
 
-    new.close()
+    #new.close()
 
     return 0
 
@@ -280,13 +282,10 @@ def create_maps(parsed_obs, offering, layer, new):
 
         data = json.loads(observation)
 
-        for a in data['features']:
-            if [a['geometry']['coordinates']] not in points:
-                points.append([Point(*a['geometry']['coordinates'])])
-                new.write(Point(*a['geometry']['coordinates']))
-
-        link = Link(layer=i, name=tableName, table=tableName, key='cat')
-        new.dblinks.add(link)
+        # for a in data['features']:
+        #     if [a['geometry']['coordinates']] not in points:
+        #         points.append([Point(*a['geometry']['coordinates'])])
+        #         new.write(Point(*a['geometry']['coordinates']))
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
         for a in data['features']:
@@ -298,35 +297,50 @@ def create_maps(parsed_obs, offering, layer, new):
             grass.warning(
                 'Recommended number of columns is less than 2000, you have '
                 'reached {}\nYou should set an event_time with a smaller range '
-                'or recompile SQLite limits as  described at '
+                'or recompile SQLite limits as described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
-        new.table = new.dblinks.by_layer(i).table()
-        new.table.create(cols)
+        #new.table = new.dblinks.by_layer(i).table()
+        #new.table.create(cols)
 
-        index = 1
+        if new.exist() is False:
+            new.open('w', layer=i, tab_name=tableName, tab_cols=cols)
+        else:
+            new.open('rw', layer=i, tab_name=tableName, tab_cols=cols)
+
+        first = True
+        insert = [''] * len(cols)
         for a in data['features']:
-            insert = [''] * len(cols)
             for item, value in a['properties'].iteritems():
                 if item != 'name':
                     insert[cols.index((item, 'DOUBLE'))] = value
                 else:
+                    if first is False:
+                        new.write(Point(*a['geometry']['coordinates']),
+                                  insert[1:])
+                    insert = [''] * len(cols)
                     insert[cols.index((item, 'VARCHAR'))] = value
+                    first = False
 
-
-            insert[0] = index
-            index += 1
-            insert = tuple(insert)
-            try:
-                new.table.insert([insert], many=True)
-            except OperationalError:
-                raise OperationalError(
-                    'You have reached maximum number of columns. You should '
-                    'set an event_time with a smaller range or recompile '
-                    'SQLite limits as described at '
-                    'https://sqlite.org/limits.html'.format(len(cols)))
-
+        new.write(Point(*a['geometry']['coordinates']),
+                  insert[1:])
         new.table.conn.commit()
+        new.close()
+
+
+            # insert[0] = index
+            # index += 1
+            # insert = tuple(insert)
+            # try:
+            #     new.table.insert([insert], many=True)
+            # except OperationalError:
+            #     raise OperationalError(
+            #         'You have reached maximum number of columns. You should '
+            #         'set an event_time with a smaller range or recompile '
+            #         'SQLite limits as described at '
+            #         'https://sqlite.org/limits.html'.format(len(cols)))
+
+        # new.table.conn.commit()
 
         i = i+1
 
