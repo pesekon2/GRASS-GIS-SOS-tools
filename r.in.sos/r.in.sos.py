@@ -155,7 +155,6 @@ def cleanup():
 
 
 def main():
-    fl = ''
     parsed_obs = dict()
     service = SensorObservationService(options['url'],
                                        version=options['version'])
@@ -310,25 +309,18 @@ def create_maps(parsed_obs, offering):
                         tableName = '_'.join(tableName.split('.'))
 
                     new = VectorTopo(tableName)
-                    new.open('w')
-                    new.write(Point(*a['geometry']['coordinates']))
+                    new.open('w', tab_cols=cols)
+                    new.write(Point(*a['geometry']['coordinates']),
+                              (name, value, ))
 
-                    link = Link(layer=1, name=tableName, table=tableName,
-                                key='cat')
-                    new.dblinks.add(link)
-
-                    new.table = new.dblinks.by_layer(1).table()
-                    new.table.create(cols)
-                    new.table.insert([(1, name, value)], many=True)
                     new.table.conn.commit()
 
-                    import pdb
-                    pdb.set_trace()
-                    new.close()
+                    new.close()#build=False)
+                    #run_command('v.build', quiet=True, map=tableName)
 
                     run_command('g.region', vect=tableName)
                     run_command('v.to.rast', input=tableName, output=tableName,
-                                use='attr', attribute_column='value', layer=-1)
+                                use='attr', attribute_column='value', layer=1)
 
                     if flags['f'] is True:
                         run_command('g.remove', 'f', type='vector',
