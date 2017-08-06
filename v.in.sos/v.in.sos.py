@@ -154,7 +154,8 @@ def main():
     service = SensorObservationService(options['url'],
                                        version=options['version'])
 
-    if any(flags.itervalues()):
+    if any(value is True and key in [
+      'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
         get_description(service)
 
     if options['offering'] == '' or options['output'] == '':
