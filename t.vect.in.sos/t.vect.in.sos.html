@@ -2,14 +2,76 @@
 
 This module imports data from SOS server to GRASS GIS. 
 They are imported as a layer for each timestamp. 
+<h2>DESCRIPTION</h2>
+
+<em>t.vect.in.sos</em> imports data from SOS server to GRASS GIS. It
+creates new spatio-temporal map for each observed property of each procedure
+(registered from vector maps created as intermediates).
 
 <h2>EXAMPLES</h2>
 
-TODO
+<h3>Standard usage:</h3>
+
+<div class="code"><pre>
+    t.vect.in.sos url=http://localhost/istsos/demo? output=workshop \
+    offering=workshop procedure=BELLINZONA \
+    observed_properties=meteo:air:humidity:relative \
+    event_time='2015-05-03 18:28:01+01:00/2015-05-03 19:33:01+01:00'
+</pre></div>
+
+Output:
+<div class="code"><pre>
+    > t.info input=workshop_workshop_meteo_air_humidity_relative type=stvds
+     +-------------------- Space Time Vector Dataset -----------------------------+
+     |                                                                            |
+     +-------------------- Basic information -------------------------------------+
+     | Id: ........................ workshop_workshop_meteo_air_humidity_relative@user1
+     | Name: ...................... workshop_workshop_meteo_air_humidity_relative
+     | Mapset: .................... user1
+     | Creator: ................... ondrej
+     | Temporal type: ............. absolute
+     | Creation time: ............. 2017-08-06 21:16:13.960948
+     | Modification time:.......... 2017-08-06 21:16:20.816273
+     | Semantic type:.............. mean
+     +-------------------- Absolute time -----------------------------------------+
+     | Start time:................. 2015-05-03 18:30:00
+     | End time:................... 2015-05-03 19:30:00
+     | Granularity:................ 10 minutes
+     | Temporal type of maps:...... point
+     +-------------------- Spatial extent ----------------------------------------+
+     | North:...................... 46.20322
+     | South:...................... 46.20322
+     | East:.. .................... 9.01976
+     | West:....................... 9.01976
+     | Top:........................ 0.0
+     | Bottom:..................... 0.0
+     |
+     | Title:
+     | Dataset for offering workshop and observed property meteo_air_humidity_relative
+     | Description:
+     | Vector space time dataset
+</pre></div>
+
+<h3>Info about services:</h3>
+
+<div class="code"><pre>
+    > t.vect.in.sos url=http://localhost/istsos/demo? offering=workshop -p -v
+     Observed properties of workshop offering:
+     urn:ogc:def:parameter:x-istsos:1.0:meteo:air:humidity:relative
+     urn:ogc:def:parameter:x-istsos:1.0:meteo:air:rainfall
+     urn:ogc:def:parameter:x-istsos:1.0:meteo:air:temperature
+     urn:ogc:def:parameter:x-istsos:1.0:meteo:air:wind:velocity
+     Procedures of workshop offering:
+     BELLINZONA
+     V_LUGANO
+</pre></div>
 
 <h2>SEE ALSO</h2>
 
-TODO
+<em>
+    <a href="v.in.sos.html">v.in.sos</a>
+    <a href="r.in.sos.html">r.in.sos</a>
+</em>
 
 <h2>AUTHORS</h2>
 

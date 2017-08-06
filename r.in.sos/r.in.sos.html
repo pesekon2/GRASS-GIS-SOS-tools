@@ -1,14 +1,51 @@
 <h2>DESCRIPTION</h2>
 
-This module imports data from SOS server as a raster maps to GRASS GIS.
+<em>r.in.sos</em> imports data from SOS server as a raster maps to GRASS GIS.
+It creates new raster map for each timestamp.
 
 <h2>EXAMPLES</h2>
 
-TODO
+<h3>Standard usage:</h3>
+
+<div class="code"><pre>
+    r.in.sos url=http://localhost/istsos/demo? output=workshop \
+    offering=workshop procedure=BELLINZONA \
+    observed_properties=meteo:air:humidity:relative \
+    event_time='2015-05-03 18:28:01+01:00/2015-05-03 19:33:01+01:00' -f
+</pre></div>
+
+Output:
+<div class="code"><pre>
+    > g.list type=raster
+     workshop_workshop_meteo_air_humidity_relative_t20150503T1830000100
+     workshop_workshop_meteo_air_humidity_relative_t20150503T1840000100
+     workshop_workshop_meteo_air_humidity_relative_t20150503T1850000100
+     workshop_workshop_meteo_air_humidity_relative_t20150503T1900000100
+     workshop_workshop_meteo_air_humidity_relative_t20150503T1910000100
+     workshop_workshop_meteo_air_humidity_relative_t20150503T1920000100
+     workshop_workshop_meteo_air_humidity_relative_t20150503T1930000100
+</pre></div>
+
+<h3>Info about services:</h3>
+
+<div class="code"><pre>
+    > r.in.sos url=http://localhost/istsos/demo? offering=workshop -p -v
+     Observed properties of workshop offering:
+     urn:ogc:def:parameter:x-istsos:1.0:meteo:air:humidity:relative
+     urn:ogc:def:parameter:x-istsos:1.0:meteo:air:rainfall
+     urn:ogc:def:parameter:x-istsos:1.0:meteo:air:temperature
+     urn:ogc:def:parameter:x-istsos:1.0:meteo:air:wind:velocity
+     Procedures of workshop offering:
+     BELLINZONA
+     V_LUGANO
+</pre></div>
 
 <h2>SEE ALSO</h2>
 
-TODO
+<em>
+    <a href="v.in.sos.html">v.in.sos</a>
+    <a href="t.vect.in.sos.html">t.vect.in.sos</a>
+</em>
 
 <h2>AUTHORS</h2>
 
