@@ -269,7 +269,6 @@ def handle_not_given_options(service, offering=None):
 
 def create_maps(parsed_obs, offering, layer, new):
     i = layer + 1
-    points = list()
 
     for key, observation in parsed_obs.iteritems():
 
@@ -305,11 +304,12 @@ def create_maps(parsed_obs, offering, layer, new):
         #new.table.create(cols)
 
         if new.exist() is False:
-            new.open('w', layer=i, tab_name=tableName, tab_cols=cols)
+            new.open(mode='w', layer=i, tab_name=tableName, tab_cols=cols, overwrite=True)
         else:
-            new.open('rw', layer=i, tab_name=tableName, tab_cols=cols)
+            new.open(mode='rw', layer=i, tab_name=tableName, tab_cols=cols, link_name=tableName, overwrite=True)
 
-        first = True
+
+        first=True
         insert = [''] * len(cols)
         for a in data['features']:
             for item, value in a['properties'].iteritems():
@@ -321,7 +321,8 @@ def create_maps(parsed_obs, offering, layer, new):
                                   insert[1:])
                     insert = [''] * len(cols)
                     insert[cols.index((item, 'VARCHAR'))] = value
-                    first = False
+                    first=False
+
 
         new.write(Point(*a['geometry']['coordinates']),
                   insert[1:])
