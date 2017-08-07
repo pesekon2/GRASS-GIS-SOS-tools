@@ -284,7 +284,7 @@ def create_maps(parsed_obs, offering, layer, new):
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
         for a in data['features']:
             for b in a['properties'].keys():
-                if b != 'name':
+                if b != 'name' and (u'%s' % b, 'DOUBLE') not in cols:
                     cols.append((u'%s' % b, 'DOUBLE'))
 
         if len(cols) > 2000:
