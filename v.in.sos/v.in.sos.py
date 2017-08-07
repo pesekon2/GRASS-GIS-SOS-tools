@@ -169,7 +169,6 @@ def main():
     run_command('g.remove', 'f', type='vector',
                 name=options['output'])
     new = VectorTopo(options['output'])
-    # new.open('w')
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
@@ -198,15 +197,10 @@ def main():
                 sys.tracebacklimit = None
             else:
                 sys.tracebacklimit = 0
-            # new.close(build=False)
-            # new.remove()
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
         create_maps(parsed_obs, off, layerscount, new)
         layerscount += len(parsed_obs)
-
-    #new.close()
-
     return 0
 
 
@@ -300,49 +294,25 @@ def create_maps(parsed_obs, offering, layer, new):
                 'or recompile SQLite limits as described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
-        #new.table = new.dblinks.by_layer(i).table()
-        #new.table.create(cols)
-
         if new.exist() is False:
             new.open(mode='w', layer=i, tab_name=tableName, tab_cols=cols, overwrite=True)
         else:
             new.open(mode='rw', layer=i, tab_name=tableName, tab_cols=cols, link_name=tableName, overwrite=True)
 
 
-        first=True
-        insert = [''] * len(cols)
         for a in data['features']:
+            insert = [None] * len(cols)
             for item, value in a['properties'].iteritems():
                 if item != 'name':
                     insert[cols.index((item, 'DOUBLE'))] = value
                 else:
-                    if first is False:
-                        new.write(Point(*a['geometry']['coordinates']),
-                                  insert[1:])
-                    insert = [''] * len(cols)
                     insert[cols.index((item, 'VARCHAR'))] = value
-                    first=False
 
+            new.write(Point(*a['geometry']['coordinates']),
+                      insert[1:])
 
-        new.write(Point(*a['geometry']['coordinates']),
-                  insert[1:])
         new.table.conn.commit()
         new.close()
-
-
-            # insert[0] = index
-            # index += 1
-            # insert = tuple(insert)
-            # try:
-            #     new.table.insert([insert], many=True)
-            # except OperationalError:
-            #     raise OperationalError(
-            #         'You have reached maximum number of columns. You should '
-            #         'set an event_time with a smaller range or recompile '
-            #         'SQLite limits as described at '
-            #         'https://sqlite.org/limits.html'.format(len(cols)))
-
-        # new.table.conn.commit()
 
         i = i+1
 
