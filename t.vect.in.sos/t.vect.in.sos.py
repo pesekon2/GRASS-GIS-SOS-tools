@@ -129,6 +129,7 @@
 import sys
 from sqlite3 import OperationalError
 import json
+import tempfile
 try:
     from owslib.sos import SensorObservationService
     from grass.script import parser, run_command, overwrite
@@ -159,7 +160,8 @@ def main():
     service = SensorObservationService(options['url'],
                                        version=options['version'])
 
-    if any(flags.itervalues()):
+    if any(value is True and key in [
+      'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
         get_description(service)
 
     if options['offering'] == '' or options['output'] == '':
@@ -169,8 +171,6 @@ def main():
             sys.tracebacklimit = 0
         raise AttributeError(
             "You have to define any flags or use 'output' and 'offering' parameters to get the data")
-
-    mapsDict = dict()
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
@@ -200,10 +200,7 @@ def main():
                 sys.tracebacklimit = 0
             raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
 
-        mapsDict.update(create_maps(parsed_obs, off))
-        # print(mapsDict)
-
-    # create_temporal(mapsDict)
+        create_maps(parsed_obs, off)
 
     return 0
 
@@ -268,42 +265,37 @@ def handle_not_given_options(service, offering=None):
 
 
 def create_maps(parsed_obs, offering):
-    mapsDict = {offering: []}
-    index = 0
 
     for key, observation in parsed_obs.iteritems():
 
-        mapsDict[offering].append({key: []})
-
-        stSuffix = key
-        if ':' in key:
-            stSuffix = '_'.join(stSuffix.split(':'))
-        if '-' in key:
-            stSuffix = '_'.join(stSuffix.split('-'))
-        if '.' in key:
-            stSuffix = '_'.join(stSuffix.split('.'))
+        mapName = '{}_{}_{}'.format(options['output'], offering, key)
+        if ':' in mapName:
+            mapName = '_'.join(mapName.split(':'))
+        if '-' in mapName:
+            mapName = '_'.join(mapName.split('-'))
+        if '.' in mapName:
+            mapName = '_'.join(mapName.split('.'))
 
         run_command('t.create',
-                    output='{}_{}_{}'.format(options['output'], offering,
-                                             stSuffix),
+                    output=mapName,
                     type='stvds',
                     title='Dataset for offering {} and observed '
-                          'property {}'.format(offering, stSuffix),
+                          'property {}'.format(offering, key),
                     description='Vector space time dataset')
 
-        #new = VectorTopo('%s_%s_%s' % (options['output'], offering,
-        #                               vectorName))
-        #new.open('w')
-        data = json.loads(observation)
+        new = VectorTopo(mapName)
+        if overwrite() is True:
+            try:
+                new.remove()
+            except:
+                pass
 
-        # points = list()
-        # for a in data['features']:
-        #     if [a['geometry']['coordinates']] not in points:
-        #         points.append([Point(*a['geometry']['coordinates'])])
-        #         new.write(Point(*a['geometry']['coordinates']))
+        data = json.loads(observation)
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
+
+        i = 1
         for a in data['features']:
             name = a['properties']['name']
             for timestamp, value in a['properties'].iteritems():
@@ -317,39 +309,27 @@ def create_maps(parsed_obs, offering):
                     if '.' in tableName:
                         tableName = '_'.join(tableName.split('.'))
 
-                    new = VectorTopo(tableName)
-                    new.open('w')
-                    new.write(Point(*a['geometry']['coordinates']))
+                    if new.exist() is False:
+                        new.open(mode='w', layer=i, tab_name=tableName,
+                                 tab_cols=cols, overwrite=True)
+                    else:
+                        new.open(mode='rw', layer=i, tab_name=tableName,
+                                 tab_cols=cols, link_name=tableName,
+                                 overwrite=True)
 
-
-                    link = Link(layer=1, name=tableName, table=tableName, #index, name=tableName, table=tableName,
-                                key='cat')
-                    new.dblinks.add(link)
-
-                    new.table = new.dblinks.by_layer(1).table()#index).table()
-                    new.table.create(cols)
-                    new.table.insert([(1, name, value)], many=True)
+                    new.write(Point(*a['geometry']['coordinates']),
+                              (name, value))
                     new.table.conn.commit()
-
                     new.close()
-                    mapsDict[offering][index][key].append(new.name)
-                    # mapsDict.append({offering: {key: [new.name]}})
 
-                    # print(timestamp, tableName)
                     formattedTimestamp = get_temporal_formatted_timestamp(
                         timestamp)
                     run_command('v.timestamp',
-                                map=tableName,
+                                map=mapName,
+                                layer=i,
                                 date=formattedTimestamp)
-                    run_command('t.register',
-                                input='{}_{}_{}'.format(options['output'],
-                                                        offering,
-                                                        stSuffix),
-                                maps=tableName,
-                                type='vector')
 
-        index += 1
-
+                    i += 1
 
         if len(cols) > 2000:
             grass.warning(
@@ -358,9 +338,7 @@ def create_maps(parsed_obs, offering):
                 'or recompile SQLite limits as  described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
-        # new.close()
-
-    return mapsDict
+        create_temporal(mapName, i)
 
 
 def get_temporal_formatted_timestamp(originalTimestamp):
@@ -405,57 +383,18 @@ def get_temporal_formatted_timestamp(originalTimestamp):
     return formattedTimestamp
 
 
-def create_temporal(mapsDict):
+def create_temporal(vectorMap, layersCount):
 
-    for off in mapsDict.keys():
-        i = 0
-        for obsProp in mapsDict[off]:
-            run_command('t.register',
-                        input='{}_{}_{}'.format(options['output'],
-                                                off, obsProp.keys()[0]),
-                        maps=obsProp.values(),
-                        type='vector')
-            i += 1
+    # TODO: t.register destroys timestamps
+    mapsList = list()
+    for i in range(1, layersCount):
+        mapsList.append('{}:{}'.format(vectorMap, i))
 
+        run_command('t.register',
+                    type='vector',
+                    input=vectorMap,
+                    maps='{}:{}'.format(vectorMap, i))
 
-    # tgis.init()
-    # dbif = tgis.SQLDatabaseInterfaceConnection()
-    # dbif.connect()
-    #
-    # #out_sp = tgis.check_new_stds(options['output'], 'stvds',
-    # #                             overwrite=overwrite())
-    #
-    # vector_db = vector.vector_db(
-    #     'grida_GRIDA_urn_ogc_def_parameter_x_istsos_1_0_meteo_air_humidity_relative')
-    #
-    # #if vector_db:
-    # #    layers = '1,'
-    # #else:
-    # #    layers = ''
-    # layers = ''
-    # first = True
-    #
-    # for layer in range(len(vector_db)):
-    #     layer += 1
-    #     #if vector_db and layer in vector_db and vector_db[layer]['layer'] == layer:
-    #     #    continue
-    #     if first:
-    #         layers += '%i' % layer
-    #         first = False
-    #     else:
-    #         layers += ',%i' % layer
-    #
-    # #run_command('v.category', input='grida_GRIDA_urn_ogc_def_parameter_x_istsos_1_0_meteo_air_humidity_relative',
-    # #            layer=layers, output=options['output'],
-    # #            option='transfer', overwrite=True)
-    #
-    # import pdb; pdb.set_trace()
-    # out_sp = tgis.open_new_stds('test', 'stvds',
-    #                             temporaltype='absolute', title='title',
-    #                             descr='desc', dbif=dbif,
-    #                             semantic='mean', overwrite=True)
-    # pdb.set_trace()
-    # print('**** DONE ****')
 
 if __name__ == "__main__":
     options, flags = parser()
