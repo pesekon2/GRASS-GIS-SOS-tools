@@ -300,6 +300,7 @@ def create_maps(parsed_obs, offering):
                 (u'value', 'DOUBLE')]
 
         i = 1
+        layersTimestamps = list()
         for a in data['features']:
             name = a['properties']['name']
             for timestamp, value in a['properties'].iteritems():
@@ -312,6 +313,7 @@ def create_maps(parsed_obs, offering):
                         tableName = '_'.join(tableName.split('-'))
                     if '.' in tableName:
                         tableName = '_'.join(tableName.split('.'))
+                    layersTimestamps.append(timestamp)
 
                     if new.exist() is False:
                         new.open(mode='w', layer=i, tab_name=tableName,
@@ -328,10 +330,10 @@ def create_maps(parsed_obs, offering):
 
                     formattedTimestamp = get_temporal_formatted_timestamp(
                         timestamp)
-                    run_command('v.timestamp',
-                                map=mapName,
-                                layer=i,
-                                date=formattedTimestamp)
+                    # run_command('v.timestamp',
+                    #             map=mapName,
+                    #             layer=i,
+                    #             date=formattedTimestamp)
 
                     i += 1
 
@@ -342,7 +344,7 @@ def create_maps(parsed_obs, offering):
                 ' or recompile SQLite limits as  described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
-        create_temporal(mapName, i)
+        create_temporal(mapName, i, layersTimestamps)
 
 
 def get_temporal_formatted_timestamp(originalTimestamp):
@@ -387,17 +389,19 @@ def get_temporal_formatted_timestamp(originalTimestamp):
     return formattedTimestamp
 
 
-def create_temporal(vectorMap, layersCount):
+def create_temporal(vectorMap, layersCount, layersTimestamps):
 
-    # TODO: t.register destroys timestamps
-    mapsList = list()
     for i in range(1, layersCount):
-        mapsList.append('{}:{}'.format(vectorMap, i))
+        layerTimestamp = '{}-{}-{} {}:{}'.format(
+            layersTimestamps[i - 1][1:5], layersTimestamps[i - 1][5:7],
+            layersTimestamps[i - 1][7:9], layersTimestamps[i - 1][10:12],
+            layersTimestamps[i - 1][12:14])
 
         run_command('t.register',
                     type='vector',
                     input=vectorMap,
-                    maps='{}:{}'.format(vectorMap, i))
+                    maps='{}:{}'.format(vectorMap, i),
+                    start=layerTimestamp)
 
 
 if __name__ == "__main__":
