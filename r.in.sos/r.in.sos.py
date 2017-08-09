@@ -241,29 +241,6 @@ def get_description(service):
     sys.exit(0)
 
 
-# def get_map_layers():
-#     service = SensorObservationService(options['url'],
-#                                        version=options['version'])
-#     layersList = list()
-#
-#     event_time = 'T'.join(options['event_time'].split(' '))
-#
-#     for off in options['offering'].split(','):
-#         procedure, observed_properties, event_time = handle_not_given_options(
-#             service, off)
-#         for obs in observed_properties.split(','):
-#             layer = '{}_{}_{}'.format(options['output'], off, obs)
-#             if ':' in layer:
-#                 layer = '_'.join(layer.split(':'))
-#             if '-' in layer:
-#                 layer = '_'.join(layer.split('-'))
-#             if '.' in layer:
-#                 layer = '_'.join(layer.split('.'))
-#             layersList.append(layer)
-#
-#     return layersList
-
-
 def handle_not_given_options(service, offering=None):
     # DUPLICATED: Also in v.in.sos
     if options['procedure'] == '':
@@ -316,8 +293,8 @@ def create_maps(parsed_obs, offering):
 
                     new.table.conn.commit()
 
-                    new.close()#build=False)
-                    #run_command('v.build', quiet=True, map=tableName)
+                    new.close()  # build=False)
+                    # run_command('v.build', quiet=True, map=tableName)
 
                     run_command('g.region', vect=tableName)
                     run_command('v.to.rast', input=tableName, output=tableName,

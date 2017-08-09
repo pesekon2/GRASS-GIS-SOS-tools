@@ -133,8 +133,8 @@ try:
     from grass.pygrass.vector.geometry import Point
     from grass.pygrass.vector.table import Link
 except ImportError as e:
-    sys.stderr.write(
-        'Error importing internal libs. Did you run the script from GRASS GIS?\n')
+    sys.stderr.write('Error importing internal libs. '
+                     'Did you run the script from GRASS GIS?\n')
     raise(e)
 
 sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
@@ -163,8 +163,8 @@ def main():
             sys.tracebacklimit = None
         else:
             sys.tracebacklimit = 0
-        raise AttributeError(
-            "You have to define any flags or use 'output' and 'offering' parameters to get the data")
+        raise AttributeError("You have to define any flags or use 'output' and"
+                             " 'offering' parameters to get the data")
 
     run_command('g.remove', 'f', type='vector',
                 name=options['output'])
@@ -176,17 +176,18 @@ def main():
             service, off)
         event_time = 'T'.join(event_time.split(' '))
 
-
-        obs = service.get_observation(offerings=[off],
-                                      responseFormat=options['response_format'],
-                                      observedProperties=[observed_properties],
-                                      procedure=procedure,
-                                      eventTime=event_time,
-                                      username=options['username'],
-                                      password=options['password'])
+        obs = service.get_observation(
+            offerings=[off],
+            responseFormat=options['response_format'],
+            observedProperties=[observed_properties],
+            procedure=procedure,
+            eventTime=event_time,
+            username=options['username'],
+            password=options['password'])
 
         try:
-            if options['version'] in ['1.0.0', '1.0'] and str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+            if options['version'] in ['1.0.0', '1.0'] and str(
+              options['response_format']) == 'text/xml;subtype="om/1.0.0"':
                 for property in observed_properties.split(','):
                     parsed_obs.update({property: xml2geojson(obs, property)})
             elif str(options['response_format']) == 'application/json':
@@ -197,7 +198,9 @@ def main():
                 sys.tracebacklimit = None
             else:
                 sys.tracebacklimit = 0
-            raise AttributeError('There is no data, could you change the time parameter, observed properties, procedures or offerings')
+            raise AttributeError(
+                'There is no data, could you change the time parameter, '
+                'observed properties, procedures or offerings')
 
         create_maps(parsed_obs, off, layerscount, new)
         layerscount += len(parsed_obs)
@@ -276,11 +279,6 @@ def create_maps(parsed_obs, offering, layer, new):
 
         data = json.loads(observation)
 
-        # for a in data['features']:
-        #     if [a['geometry']['coordinates']] not in points:
-        #         points.append([Point(*a['geometry']['coordinates'])])
-        #         new.write(Point(*a['geometry']['coordinates']))
-
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
         for a in data['features']:
             for b in a['properties'].keys():
@@ -290,15 +288,16 @@ def create_maps(parsed_obs, offering, layer, new):
         if len(cols) > 2000:
             grass.warning(
                 'Recommended number of columns is less than 2000, you have '
-                'reached {}\nYou should set an event_time with a smaller range '
-                'or recompile SQLite limits as described at '
+                'reached {}\nYou should set an event_time with a smaller range'
+                ' or recompile SQLite limits as described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
         if new.exist() is False:
-            new.open(mode='w', layer=i, tab_name=tableName, tab_cols=cols, overwrite=True)
+            new.open(mode='w', layer=i, tab_name=tableName, tab_cols=cols,
+                     overwrite=True)
         else:
-            new.open(mode='rw', layer=i, tab_name=tableName, tab_cols=cols, link_name=tableName, overwrite=True)
-
+            new.open(mode='rw', layer=i, tab_name=tableName, tab_cols=cols,
+                     link_name=tableName, overwrite=True)
 
         for a in data['features']:
             insert = [None] * len(cols)
