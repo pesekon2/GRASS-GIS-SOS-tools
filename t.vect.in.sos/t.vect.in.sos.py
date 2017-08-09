@@ -328,13 +328,6 @@ def create_maps(parsed_obs, offering):
                     new.table.conn.commit()
                     new.close()
 
-                    formattedTimestamp = get_temporal_formatted_timestamp(
-                        timestamp)
-                    # run_command('v.timestamp',
-                    #             map=mapName,
-                    #             layer=i,
-                    #             date=formattedTimestamp)
-
                     i += 1
 
         if len(cols) > 2000:
@@ -345,48 +338,6 @@ def create_maps(parsed_obs, offering):
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
         create_temporal(mapName, i, layersTimestamps)
-
-
-def get_temporal_formatted_timestamp(originalTimestamp):
-
-    day = originalTimestamp[7:9]
-    if day[0] == '0':
-        day = day[1]
-
-    if originalTimestamp[5:7] == '01':
-        month = 'jan'
-    elif originalTimestamp[5:7] == '02':
-        month = 'feb'
-    elif originalTimestamp[5:7] == '03':
-        month = 'mar'
-    elif originalTimestamp[5:7] == '04':
-        month = 'apr'
-    elif originalTimestamp[5:7] == '05':
-        month = 'may'
-    elif originalTimestamp[5:7] == '06':
-        month = 'jun'
-    elif originalTimestamp[5:7] == '07':
-        month = 'jul'
-    elif originalTimestamp[5:7] == '08':
-        month = 'aug'
-    elif originalTimestamp[5:7] == '09':
-        month = 'sep'
-    elif originalTimestamp[5:7] == '10':
-        month = 'oct'
-    elif originalTimestamp[5:7] == '11':
-        month = 'nov'
-    elif originalTimestamp[5:7] == '12':
-        month = 'dec'
-
-    hour = originalTimestamp[10:12]
-    if hour[0] == '0':
-        hour = hour[1]
-
-    formattedTimestamp = '{} {} {} {}:{}:{}+{}'.format(
-        day, month, originalTimestamp[1:5], hour, originalTimestamp[12:14],
-        originalTimestamp[14:16], originalTimestamp[16:])
-
-    return formattedTimestamp
 
 
 def create_temporal(vectorMap, layersCount, layersTimestamps):
