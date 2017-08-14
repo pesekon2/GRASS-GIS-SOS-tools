@@ -332,9 +332,8 @@ def create_maps(parsed_obs, offering):
 
                             i += 1
                         else:
-                            new.open(mode='rw', tab_name=tableName,
-                                 tab_cols=cols, link_name=tableName,
-                                 overwrite=True)
+                            new.open(mode='rw',
+                                     layer=layersTimestamps.index(timestamp))
 
                     new.write(Point(*a['geometry']['coordinates']),
                               (name, value))
