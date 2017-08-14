@@ -132,7 +132,7 @@ import json
 import tempfile
 try:
     from owslib.sos import SensorObservationService
-    from grass.script import parser, run_command, overwrite
+    from grass.script import parser, run_command, overwrite, pipe_command
     from grass.script import core as grass
     from grass.script import vector
     from grass.pygrass.vector import VectorTopo
@@ -321,8 +321,18 @@ def create_maps(parsed_obs, offering):
                     if new.exist() is False:
                         new.open(mode='w', layer=i, tab_name=tableName,
                                  tab_cols=cols, overwrite=True)
+
+                        i += 1
                     else:
-                        new.open(mode='rw', layer=i, tab_name=tableName,
+                        b = pipe_command('db.tables')
+                        if tableName not in b.communicate()[0]:
+                            new.open(mode='rw', layer=i, tab_name=tableName,
+                                 tab_cols=cols, link_name=tableName,
+                                 overwrite=True)
+
+                            i += 1
+                        else:
+                            new.open(mode='rw', tab_name=tableName,
                                  tab_cols=cols, link_name=tableName,
                                  overwrite=True)
 
@@ -332,7 +342,6 @@ def create_maps(parsed_obs, offering):
                     new.close(build=False)
                     run_command('v.build', map=mapName, quiet=True)
 
-                    i += 1
 
         if len(cols) > 2000:
             grass.warning(
