@@ -316,24 +316,24 @@ def create_maps(parsed_obs, offering):
                         tableName = '_'.join(tableName.split('-'))
                     if '.' in tableName:
                         tableName = '_'.join(tableName.split('.'))
-                    layersTimestamps.append(timestamp)
 
                     if new.exist() is False:
                         new.open(mode='w', layer=i, tab_name=tableName,
                                  tab_cols=cols, overwrite=True)
 
                         i += 1
+                        layersTimestamps.append(timestamp)
                     else:
-                        b = pipe_command('db.tables')
-                        if tableName not in b.communicate()[0]:
+                        if timestamp not in layersTimestamps:
                             new.open(mode='rw', layer=i, tab_name=tableName,
                                  tab_cols=cols, link_name=tableName,
                                  overwrite=True)
 
                             i += 1
+                            layersTimestamps.append(timestamp)
                         else:
                             new.open(mode='rw',
-                                     layer=layersTimestamps.index(timestamp))
+                                     layer=layersTimestamps.index(timestamp)+1)
 
                     new.write(Point(*a['geometry']['coordinates']),
                               (name, value))
