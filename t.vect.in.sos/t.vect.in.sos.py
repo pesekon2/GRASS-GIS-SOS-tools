@@ -235,7 +235,7 @@ def get_description(service):
             if flags['g'] is False:
                 print('Begin timestamp, end timestamp of '
                       '{} offering:'.format(options['offering']))
-                print('{}, {}'.format(service[offering].begin_position,
+                print('{},{}'.format(service[offering].begin_position,
                                       service[offering].end_position))
             else:
                 print('start_time={}'.format(service[offering].begin_position))
