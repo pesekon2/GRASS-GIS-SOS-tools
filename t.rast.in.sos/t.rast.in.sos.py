@@ -214,7 +214,8 @@ def create_temporal(mapsListFile, mapName):
                         type='raster',
                         input=mapName,
                         maps='{}'.format(rasterMap.strip()),
-                        start=mapTimestamp)
+                        start=mapTimestamp,
+                        quiet=True)
 
 
 def handle_not_given_options(service, offering=None):

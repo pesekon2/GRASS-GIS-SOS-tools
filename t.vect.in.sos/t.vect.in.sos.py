@@ -272,6 +272,9 @@ def create_maps(parsed_obs, offering):
 
     for key, observation in parsed_obs.iteritems():
 
+        run_command('g.message',
+                    message='Creating vector maps for {}...'.format(key))
+
         mapName = '{}_{}_{}'.format(options['output'], offering, key)
         if ':' in mapName:
             mapName = '_'.join(mapName.split(':'))
@@ -326,7 +329,8 @@ def create_maps(parsed_obs, offering):
                     new.write(Point(*a['geometry']['coordinates']),
                               (name, value))
                     new.table.conn.commit()
-                    new.close()
+                    new.close(build=False)
+                    run_command('v.build', map=mapName, quiet=True)
 
                     i += 1
 
@@ -342,6 +346,9 @@ def create_maps(parsed_obs, offering):
 
 def create_temporal(vectorMap, layersCount, layersTimestamps):
 
+    run_command('g.message',
+                message='Registering maps in the space time dataset...')
+
     for i in range(1, layersCount):
         layerTimestamp = '{}-{}-{} {}:{}'.format(
             layersTimestamps[i - 1][1:5], layersTimestamps[i - 1][5:7],
@@ -352,7 +359,8 @@ def create_temporal(vectorMap, layersCount, layersTimestamps):
                     type='vector',
                     input=vectorMap,
                     maps='{}:{}'.format(vectorMap, i),
-                    start=layerTimestamp)
+                    start=layerTimestamp,
+                    quiet=True)
 
 
 if __name__ == "__main__":

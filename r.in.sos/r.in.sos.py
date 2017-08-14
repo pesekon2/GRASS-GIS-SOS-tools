@@ -293,16 +293,17 @@ def create_maps(parsed_obs, offering):
 
                     new.table.conn.commit()
 
-                    new.close()  # build=False)
-                    # run_command('v.build', quiet=True, map=tableName)
+                    new.close(build=False)
+                    run_command('v.build', quiet=True, map=tableName)
 
                     run_command('g.region', vect=tableName)
                     run_command('v.to.rast', input=tableName, output=tableName,
-                                use='attr', attribute_column='value', layer=1)
+                                use='attr', attribute_column='value', layer=1,
+                                quiet=True)
 
                     if flags['f'] is True:
                         run_command('g.remove', 'f', type='vector',
-                                    name=tableName)
+                                    name=tableName, quiet=True)
 
 
 if __name__ == "__main__":
