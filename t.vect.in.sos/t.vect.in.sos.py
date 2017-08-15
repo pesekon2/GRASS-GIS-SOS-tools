@@ -237,14 +237,17 @@ def get_description(service):
                 print(procedure.split(':')[-1])
 
         if flags['t'] is True:
+            beginTimestamp = str(service[offering].begin_position)
+            beginTimestamp = 'T'.join(beginTimestamp.split(' '))
+            endTimestamp = str(service[offering].end_position)
+            endTimestamp = 'T'.join(endTimestamp.split(' '))
             if flags['g'] is False:
-                print('Begin timestamp, end timestamp of '
+                print('Begin timestamp/end timestamp of '
                       '{} offering:'.format(options['offering']))
-                print('{},{}'.format(service[offering].begin_position,
-                                     service[offering].end_position))
+                print('{}/{}'.format(beginTimestamp, endTimestamp))
             else:
-                print('start_time={}'.format(service[offering].begin_position))
-                print('end_time={}'.format(service[offering].end_position))
+                print('start_time={}'.format(beginTimestamp))
+                print('end_time={}'.format(endTimestamp))
 
     sys.exit(0)
 
@@ -274,8 +277,11 @@ def handle_not_given_options(service, offering=None):
         observed_properties = options['observed_properties']
 
     if options['event_time'] == '':
-        event_time = '{}/{}'.format(service[offering].begin_position,
-                                    service[offering].end_position)
+        beginTimestamp = str(service[offering].begin_position)
+        beginTimestamp = 'T'.join(beginTimestamp.split(' '))
+        endTimestamp = str(service[offering].end_position)
+        endTimestamp = 'T'.join(endTimestamp.split(' '))
+        event_time = '{}/{}'.format(beginTimestamp, endTimestamp)
     else:
         event_time = options['event_time']
 
