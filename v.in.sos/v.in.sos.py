@@ -82,7 +82,7 @@
 #%option
 #% key: procedure
 #% type: string
-#% description: Who provide the observations
+#% description: Who provide the observations (mostly the sensor)
 #% required: no
 #% guisection: Request
 #%end
@@ -90,7 +90,7 @@
 #% key: event_time
 #% type: string
 #% label: Timestamp of first/timestamp of last requested observation
-#% description: Exmaple: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
+#% description: Example: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
 #% required: no
 #% guisection: Request
 #%end
@@ -208,6 +208,11 @@ def main():
 
 
 def get_description(service):
+    """
+    Return informations about the requested service if given necessary flags
+    :param service: Service which we are requesting informations about
+    """
+
     if flags['o'] is True:
         if flags['g'] is False:
             print('SOS offerings:')
@@ -233,7 +238,7 @@ def get_description(service):
                 print('Begin timestamp, end timestamp of '
                       '{} offering:'.format(options['offering']))
                 print('{},{}'.format(service[offering].begin_position,
-                                      service[offering].end_position))
+                                     service[offering].end_position))
             else:
                 print('start_time={}'.format(service[offering].begin_position))
                 print('end_time={}'.format(service[offering].end_position))
@@ -242,6 +247,14 @@ def get_description(service):
 
 
 def handle_not_given_options(service, offering=None):
+    """
+    If there are not given some options, use the full scale
+    :param service: Service which we are requesting parameters for
+    :param offering: A collection of sensors used to conveniently group them up
+    :return procedure: Who provide the observations (mostly the sensor)
+    :return observed_properties: The phenomena that are observed
+    :return event_time: Timestamp of first,last requested observation
+    """
     if options['procedure'] == '':
         procedure = None
     else:
@@ -265,6 +278,14 @@ def handle_not_given_options(service, offering=None):
 
 
 def create_maps(parsed_obs, offering, layer, new):
+    """
+    Add layers representing offerings and observed properties to the vector map
+    :param parsed_obs: Observations for a given offering in geoJSON format
+    :param offering: A collection of sensors used to conveniently group them up
+    :param layer: Count of yet existing layers in vector map
+    :param new: Given vector map which should be updated with new layers
+    """
+
     i = layer + 1
 
     for key, observation in parsed_obs.iteritems():
@@ -313,7 +334,7 @@ def create_maps(parsed_obs, offering, layer, new):
         new.table.conn.commit()
         new.close()
 
-        i = i+1
+        i += 1
 
 
 if __name__ == "__main__":

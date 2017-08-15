@@ -94,7 +94,7 @@
 #% key: event_time
 #% type: string
 #% label: Timestamp of first/timestamp of last requested observation
-#% description: Exmaple: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
+#% description: Example: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
 #% required: no
 #% guisection: Request
 #%end
@@ -211,6 +211,11 @@ def main():
 
 def get_description(service):
     # DUPLICATED: Also in v.in.sos
+    """
+    Return informations about the requested service if given necessary flags
+    :param service: Service which we are requesting informations about
+    """
+
     if flags['o'] is True:
         if flags['g'] is False:
             print('SOS offerings:')
@@ -236,7 +241,7 @@ def get_description(service):
                 print('Begin timestamp, end timestamp of '
                       '{} offering:'.format(options['offering']))
                 print('{},{}'.format(service[offering].begin_position,
-                                      service[offering].end_position))
+                                     service[offering].end_position))
             else:
                 print('start_time={}'.format(service[offering].begin_position))
                 print('end_time={}'.format(service[offering].end_position))
@@ -246,6 +251,15 @@ def get_description(service):
 
 def handle_not_given_options(service, offering=None):
     # DUPLICATED: Also in v.in.sos
+    """
+    If there are not given some options, use the full scale
+    :param service: Service which we are requesting parameters for
+    :param offering: A collection of sensors used to conveniently group them up
+    :return procedure: Who provide the observations (mostly the sensor)
+    :return observed_properties: The phenomena that are observed
+    :return event_time: Timestamp of first,last requested observation
+    """
+
     if options['procedure'] == '':
         procedure = None
     else:
@@ -269,6 +283,11 @@ def handle_not_given_options(service, offering=None):
 
 
 def create_maps(parsed_obs, offering):
+    """
+    Create vector map representing offerings and observed properties
+    :param parsed_obs: Observations for a given offering in geoJSON format
+    :param offering: A collection of sensors used to conveniently group them up
+    """
 
     for key, observation in parsed_obs.iteritems():
 
@@ -326,8 +345,8 @@ def create_maps(parsed_obs, offering):
                     else:
                         if timestamp not in layersTimestamps:
                             new.open(mode='rw', layer=i, tab_name=tableName,
-                                 tab_cols=cols, link_name=tableName,
-                                 overwrite=True)
+                                     tab_cols=cols, link_name=tableName,
+                                     overwrite=True)
 
                             i += 1
                             layersTimestamps.append(timestamp)
@@ -341,7 +360,6 @@ def create_maps(parsed_obs, offering):
                     new.close(build=False)
                     run_command('v.build', map=mapName, quiet=True)
 
-
         if len(cols) > 2000:
             grass.warning(
                 'Recommended number of columns is less than 2000, you have '
@@ -353,6 +371,12 @@ def create_maps(parsed_obs, offering):
 
 
 def create_temporal(vectorMap, layersCount, layersTimestamps):
+    """
+    Create stvds from given vector map where one layer represents one timestamp
+    :param vectorMap: Vector map used as the original for registration
+    :param layersCount: Count of layers (timestamps) of a vector map
+    :param layersTimestamps: List of timestamps used in the origina; vector map
+    """
 
     run_command('g.message',
                 message='Registering maps in the space time dataset...')

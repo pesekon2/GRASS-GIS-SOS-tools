@@ -96,7 +96,7 @@
 #% key: event_time
 #% type: string
 #% label: Timestamp of first/timestamp of last requested observation
-#% description: Exmaple: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
+#% description: Example: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
 #% required: no
 #% guisection: Request
 #%end
@@ -208,6 +208,11 @@ def main():
 
 def get_description(service):
     # DUPLICATED: Also in v.in.sos
+    """
+    Return informations about the requested service if given necessary flags
+    :param service: Service which we are requesting informations about
+    """
+
     if flags['o'] is True:
         if flags['g'] is False:
             print('SOS offerings:')
@@ -243,6 +248,15 @@ def get_description(service):
 
 def handle_not_given_options(service, offering=None):
     # DUPLICATED: Also in v.in.sos
+    """
+    If there are not given some options, use the full scale
+    :param service: Service which we are requesting parameters for
+    :param offering: A collection of sensors used to conveniently group them up
+    :return procedure: Who provide the observations (mostly the sensor)
+    :return observed_properties: The phenomena that are observed
+    :return event_time: Timestamp of first,last requested observation
+    """
+
     if options['procedure'] == '':
         procedure = None
     else:
@@ -266,6 +280,11 @@ def handle_not_given_options(service, offering=None):
 
 
 def create_maps(parsed_obs, offering):
+    """
+    Create raster maps representing offerings, observed props and procedures
+    :param parsed_obs: Observations for a given offering in geoJSON format
+    :param offering: A collection of sensors used to conveniently group them up
+    """
 
     for key, observation in parsed_obs.iteritems():
         data = json.loads(observation)

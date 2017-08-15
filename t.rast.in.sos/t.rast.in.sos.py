@@ -93,7 +93,7 @@
 #% key: event_time
 #% type: string
 #% label: Timestamp of first/timestamp of last requested observation
-#% description: Exmaple: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
+#% description: Example: 2015-06-01T00:00:00+0200/2015-06-03T00:00:00+0200
 #% required: no
 #% guisection: Request
 #%end
@@ -161,7 +161,7 @@ def main():
 
     run_command('r.in.sos', flags=fl, **options)
     if any(value is True and key in [
-        'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
+           'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
         return 0
 
     service = SensorObservationService(options['url'],
@@ -187,6 +187,12 @@ def main():
 
 
 def get_maps(mapName):
+    """
+    Get the list of maps created during r.in.sos
+    :param mapName: Prefix of raster maps names (name without timestamp)
+    :return tmpFile: Temporary file containing the intermediate raster maps
+    """
+
     tmpFile = grass.tempfile()
     run_command('g.list', type='raster',
                 pattern='{}_*'.format(mapName),
@@ -196,6 +202,11 @@ def get_maps(mapName):
 
 
 def create_temporal(mapsListFile, mapName):
+    """
+    Create strds from given raster maps where every raster map is timestamped
+    :param mapsListFile: Temporary file containing names of raster maps
+    :param mapName: Name for the output strds
+    """
 
     run_command('t.create',
                 output=mapName,
@@ -220,6 +231,15 @@ def create_temporal(mapsListFile, mapName):
 
 def handle_not_given_options(service, offering=None):
     # DUPLICATED: Also in v.in.sos
+    """
+    If there are not given some options, use the full scale
+    :param service: Service which we are requesting parameters for
+    :param offering: A collection of sensors used to conveniently group them up
+    :return procedure: Who provide the observations (mostly the sensor)
+    :return observed_properties: The phenomena that are observed
+    :return event_time: Timestamp of first,last requested observation
+    """
+
     if options['procedure'] == '':
         procedure = None
     else:
