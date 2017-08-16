@@ -133,7 +133,7 @@ from sqlite3 import OperationalError
 import json
 try:
     from owslib.sos import SensorObservationService
-    from grass.script import parser, run_command
+    from grass.script import parser, run_command, overwrite
     from grass.script import core as grass
     from grass.pygrass.vector import VectorTopo
     from grass.pygrass.vector.geometry import Point
@@ -297,6 +297,8 @@ def create_maps(parsed_obs, offering):
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
+        tableNames = list()
+
         for a in data['features']:
             name = a['properties']['name']
             for timestamp, value in a['properties'].iteritems():
@@ -312,7 +314,20 @@ def create_maps(parsed_obs, offering):
                         tableName = '_'.join(tableName.split('.'))
 
                     new = VectorTopo(tableName)
-                    new.open('w', tab_cols=cols)
+                    if overwrite() is True and tableName not in tableNames:
+                        try:
+                            new.remove()
+                        except:
+                            pass
+
+                    if new.exist() is False:
+                        tableNames.append(tableName)
+                        new.open(mode='w', layer=1, tab_name=tableName,
+                                 tab_cols=cols, overwrite=True)
+                    else:
+                        new.open(mode='rw',
+                                 layer=1)
+
                     new.write(Point(*a['geometry']['coordinates']),
                               (name, value, ))
 
@@ -321,14 +336,15 @@ def create_maps(parsed_obs, offering):
                     new.close(build=False)
                     run_command('v.build', quiet=True, map=tableName)
 
-                    run_command('g.region', vect=tableName)
-                    run_command('v.to.rast', input=tableName, output=tableName,
-                                use='attr', attribute_column='value', layer=1,
-                                quiet=True)
+        for tableName in tableNames:
+            run_command('g.region', vect=tableName)
+            run_command('v.to.rast', input=tableName, output=tableName,
+                        use='attr', attribute_column='value', layer=1,
+                        quiet=True)
 
-                    if flags['f'] is True:
-                        run_command('g.remove', 'f', type='vector',
-                                    name=tableName, quiet=True)
+            if flags['f'] is True:
+                run_command('g.remove', 'f', type='vector',
+                            name=tableName, quiet=True)
 
 
 if __name__ == "__main__":
