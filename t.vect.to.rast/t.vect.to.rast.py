@@ -122,7 +122,7 @@ def rasterize(options, vectorMaps, stampedMaps, dbif, overwrite):
                 if mtimMap.get_id().split('@')[0] == ':'.join([map, layer]):
                     extent = mtimMap.get_temporal_extent()
                     mapName = '{}_{}'.format(options['basename'],
-                                              extent.get_start_time())
+                                             extent.get_start_time())
                     if ':' in mapName:
                         mapName = '_'.join(mapName.split(':'))
                     if '-' in mapName:
@@ -137,9 +137,14 @@ def rasterize(options, vectorMaps, stampedMaps, dbif, overwrite):
                                                dbif=dbif,
                                                overwrite=overwrite)
 
-            run_command('v.to.rast', input=map, layer=layer, use='attr',
-                        attribute_column='value', output=newMap.get_id(),
-                        quiet=True, overwrite=overwrite)
+            run_command('v.to.rast',
+                        input=map,
+                        layer=layer,
+                        use='attr',
+                        attribute_column=options['column'],
+                        output=newMap.get_id(),
+                        quiet=True,
+                        overwrite=overwrite)
 
             rasterMaps.append(newMap)
 
