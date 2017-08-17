@@ -297,7 +297,7 @@ def create_maps(parsed_obs, offering):
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
-        tableNames = list()
+        tableNames = dict()
 
         for a in data['features']:
             name = a['properties']['name']
@@ -314,32 +314,37 @@ def create_maps(parsed_obs, offering):
                         tableName = '_'.join(tableName.split('.'))
 
                     new = VectorTopo(tableName)
-                    if overwrite() is True and tableName not in tableNames:
+                    if overwrite() is True and \
+                                    tableName not in tableNames.keys():
                         try:
                             new.remove()
                         except:
                             pass
 
                     if new.exist() is False:
-                        tableNames.append(tableName)
+                        tableNames.update({tableName: [1]})
                         new.open(mode='w', layer=1, tab_name=tableName,
                                  tab_cols=cols, overwrite=True)
                     else:
                         new.open(mode='rw',
                                  layer=1)
+                        tableNames[tableName].append(
+                            tableNames[tableName][-1] + 1)
 
                     new.write(Point(*a['geometry']['coordinates']),
-                              (name, value, ))
+                              cat=tableNames[tableName][-1],
+                              attrs=(name, value, ))
 
                     new.table.conn.commit()
 
                     new.close(build=False)
                     run_command('v.build', quiet=True, map=tableName)
 
-        for tableName in tableNames:
+        for tableName in tableNames.keys():
             run_command('g.region', vect=tableName)
             run_command('v.to.rast', input=tableName, output=tableName,
                         use='attr', attribute_column='value', layer=1,
+                        label_column='name', type='point',
                         quiet=True)
 
             if flags['f'] is True:
