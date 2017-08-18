@@ -101,6 +101,30 @@
 #% guisection: Request
 #%end
 #%option
+#% key: granularity
+#% type: integer
+#% label: Granularity used to aggregate data
+#% description: If not given, all data for event_time will be returned
+#% required: no
+#% guisection: Data
+#%end
+#%option
+#% key: granularity_units
+#% type: string
+#% label: Unit must be set in case of granularity input
+#% options: years, months, days, hours, minutes, seconds
+#% required: no
+#% guisection: Data
+#%end
+#%option
+#% key: aggregation
+#% type: string
+#% label: Aggregation used in case of granularity
+#% options: mean, sum
+#% required: no
+#% guisection: Data
+#%end
+#%option
 #% key: version
 #% type: string
 #% description: Version of SOS server
@@ -131,6 +155,7 @@
 import sys
 from sqlite3 import OperationalError
 import json
+import time, datetime
 try:
     from owslib.sos import SensorObservationService
     from grass.script import parser, run_command, overwrite
@@ -172,6 +197,11 @@ def main():
             "You have to define any flags or use 'output' and 'offering' "
             "parameters to get the data")
 
+    if options['granularity'] != '':
+        secondsGranularity = get_seconds_granularity()
+    else:
+        secondsGranularity = 1
+
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
         procedure, observed_properties, event_time = handle_not_given_options(
@@ -201,7 +231,7 @@ def main():
                                  'parameter, observed properties, procedures '
                                  'or offerings')
 
-        create_maps(parsed_obs, off)
+        create_maps(parsed_obs, off, secondsGranularity)
 
     return 0
 
@@ -249,6 +279,29 @@ def get_description(service):
     sys.exit(0)
 
 
+def get_seconds_granularity():
+    """
+    transform given granularity from given format into number of seconds
+    :return secondsGranularity: Number of seconds defining granularity
+    """
+
+    if options['granularity_units'] == 'seconds':
+        secondsGranularity = int(options['granularity'])
+    elif options['granularity_units'] == 'minutes':
+        secondsGranularity = int(options['granularity']) * 60
+    elif options['granularity_units'] == 'hours':
+        secondsGranularity = int(options['granularity']) * 3600
+    elif options['granularity_units'] == 'days':
+        secondsGranularity = int(options['granularity']) * 86400
+    elif options['granularity_units'] == 'months':
+        # TODO: Make more month depending
+        secondsGranularity = int(options['granularity']) * 2592000
+    elif options['granularity_units'] == 'minutes':
+        secondsGranularity = int(options['granularity']) * 31556926
+
+    return secondsGranularity
+
+
 def handle_not_given_options(service, offering=None):
     # DUPLICATED: Also in v.in.sos
     """
@@ -285,71 +338,108 @@ def handle_not_given_options(service, offering=None):
     return procedure, observed_properties, event_time
 
 
-def create_maps(parsed_obs, offering):
+def create_maps(parsed_obs, offering, secondsGranularity):
     """
     Create raster maps representing offerings, observed props and procedures
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
+    :param secondsGranularity: Granularity in seconds
     """
+
+    timestampPattern = '%Y-%m-%dT%H:%M:%S' # TODO: Timezone
+    startTime = options['event_time'].split('+')[0]
+    epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
+    endTime = options['event_time'].split('+')[1].split('/')[1]
+    epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
     for key, observation in parsed_obs.iteritems():
         data = json.loads(observation)
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
-        tableNames = dict()
+
+        geometries = dict()
+        intervals = {}
+        for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
+            intervals.update({secondsStamp: dict()})
+
+        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
 
         for a in data['features']:
             name = a['properties']['name']
+            geometries.update({name: a['geometry']['coordinates']})
+
             for timestamp, value in a['properties'].iteritems():
                 if timestamp != 'name':
-                    tableName = '{}_{}_{}_{}'.format(options['output'],
-                                                     offering, key,
-                                                     timestamp)
-                    if ':' in tableName:
-                        tableName = '_'.join(tableName.split(':'))
-                    if '-' in tableName:
-                        tableName = '_'.join(tableName.split('-'))
-                    if '.' in tableName:
-                        tableName = '_'.join(tableName.split('.'))
+                    observationStartTime = timestamp[:-4]
+                    secondsTimestamp = int(time.mktime(
+                        time.strptime(observationStartTime, timestampPattern)))
+                    for interval in intervals.keys():
+                        if secondsTimestamp >= interval \
+                                and secondsTimestamp < (
+                                            interval + secondsGranularity):
+                            if name in intervals[interval].keys():
+                                intervals[interval][name].append(float(value))
+                            else:
+                                intervals[interval].update(
+                                    {name: [float(value)]})
+                            break
 
-                    new = VectorTopo(tableName)
-                    if overwrite() is True and \
-                                    tableName not in tableNames.keys():
-                        try:
-                            new.remove()
-                        except:
-                            pass
+        for interval in intervals.keys():
+            if len(intervals[interval]) != 0:
+                timestamp = datetime.datetime.fromtimestamp(
+                    interval).strftime('t%Y%m%dT%H%M%S')
 
+                tableName = '{}_{}_{}_{}'.format(options['output'],
+                                                 offering, key,
+                                                 timestamp)
+                if ':' in tableName:
+                    tableName = '_'.join(tableName.split(':'))
+                if '-' in tableName:
+                    tableName = '_'.join(tableName.split('-'))
+                if '.' in tableName:
+                    tableName = '_'.join(tableName.split('.'))
+
+                new = VectorTopo(tableName)
+                if overwrite() is True:
+                    try:
+                        new.remove()
+                    except:
+                        pass
+
+                new.open(mode='w', layer=1, tab_name=tableName,
+                         link_name=tableName, tab_cols=cols, overwrite=True)
+                i = 1
+                for procedure, values in intervals[interval].iteritems():
                     if new.exist() is False:
-                        tableNames.update({tableName: [1]})
-                        new.open(mode='w', layer=1, tab_name=tableName,
-                                 tab_cols=cols, overwrite=True)
+                        i = 1
                     else:
-                        new.open(mode='rw',
-                                 layer=1)
-                        tableNames[tableName].append(
-                            tableNames[tableName][-1] + 1)
+                        i += 1
 
-                    new.write(Point(*a['geometry']['coordinates']),
-                              cat=tableNames[tableName][-1],
-                              attrs=(name, value, ))
+                    if options['aggregation'] == 'mean':
+                        value = sum(values) / len(values)
+                    elif options['aggregation'] == 'sum':
+                        value = sum(values)
+                    # TODO: Other aggregations
 
-                    new.table.conn.commit()
+                    new.write(Point(*geometries[procedure]),
+                              cat=i,
+                              attrs=(procedure, value,))
 
-                    new.close(build=False)
-                    run_command('v.build', quiet=True, map=tableName)
+                new.table.conn.commit()
 
-        for tableName in tableNames.keys():
-            run_command('g.region', vect=tableName)
-            run_command('v.to.rast', input=tableName, output=tableName,
-                        use='attr', attribute_column='value', layer=1,
-                        label_column='name', type='point',
-                        quiet=True)
+                new.close(build=False)
+                run_command('v.build', quiet=True, map=tableName)
 
-            if flags['f'] is True:
-                run_command('g.remove', 'f', type='vector',
-                            name=tableName, quiet=True)
+                run_command('g.region', vect=tableName)
+                run_command('v.to.rast', input=tableName, output=tableName,
+                            use='attr', attribute_column='value', layer=1,
+                            label_column='name', type='point',
+                            quiet=True)
+
+                if flags['f'] is True:
+                    run_command('g.remove', 'f', type='vector',
+                                name=tableName, quiet=True)
 
 
 if __name__ == "__main__":
