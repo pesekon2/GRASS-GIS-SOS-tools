@@ -163,16 +163,18 @@ try:
     from grass.pygrass.vector import VectorTopo
     from grass.pygrass.vector.geometry import Point
     from grass.pygrass.vector.table import Link
+    from grass.pygrass.utils import get_lib_path
 except ImportError as e:
     sys.stderr.write(
         'Error importing internal libs. Did you run the script from GRASS '
         'GIS?\n')
     raise(e)
 
-sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
-# TODO: Incorporate format conversions into OWSLib and don't use absolute path
-from xml2geojson import xml2geojson
-from json2geojson import json2geojson
+path = get_lib_path(modname='sos', libname='libsos')
+if path is None:
+    grass.script.fatal('Not able to find the sos library directory.')
+sys.path.append(path)
+from soslib import *
 
 
 def cleanup():
@@ -205,7 +207,8 @@ def main():
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
         procedure, observed_properties, event_time = handle_not_given_options(
-            service, off)
+            service, off, options['procedure'], options['observed_properties'],
+            options['event_time'])
         event_time = 'T'.join(event_time.split(' '))
 
         obs = service.get_observation(
@@ -236,49 +239,6 @@ def main():
     return 0
 
 
-def get_description(service):
-    # DUPLICATED: Also in v.in.sos
-    """
-    Return informations about the requested service if given necessary flags
-    :param service: Service which we are requesting informations about
-    """
-
-    if flags['o'] is True:
-        if flags['g'] is False:
-            print('SOS offerings:')
-        for offering in service.offerings:
-            print(offering.id)
-
-    for offering in options['offering'].split(','):
-        if flags['v'] is True:
-            if flags['g'] is False:
-                print('Observed properties of '
-                      '{} offering:'.format(offering))
-            for observed_property in service[offering].observed_properties:
-                print(observed_property)
-
-        if flags['p'] is True:
-            if flags['g'] is False:
-                print('Procedures of {} offering:'.format(offering))
-            for procedure in service[offering].procedures:
-                print(procedure.split(':')[-1])
-
-        if flags['t'] is True:
-            beginTimestamp = str(service[offering].begin_position)
-            beginTimestamp = 'T'.join(beginTimestamp.split(' '))
-            endTimestamp = str(service[offering].end_position)
-            endTimestamp = 'T'.join(endTimestamp.split(' '))
-            if flags['g'] is False:
-                print('Begin timestamp/end timestamp of '
-                      '{} offering:'.format(options['offering']))
-                print('{}/{}'.format(beginTimestamp, endTimestamp))
-            else:
-                print('start_time={}'.format(beginTimestamp))
-                print('end_time={}'.format(endTimestamp))
-
-    sys.exit(0)
-
-
 def get_seconds_granularity():
     """
     transform given granularity from given format into number of seconds
@@ -302,42 +262,6 @@ def get_seconds_granularity():
     return secondsGranularity
 
 
-def handle_not_given_options(service, offering=None):
-    # DUPLICATED: Also in v.in.sos
-    """
-    If there are not given some options, use the full scale
-    :param service: Service which we are requesting parameters for
-    :param offering: A collection of sensors used to conveniently group them up
-    :return procedure: Who provide the observations (mostly the sensor)
-    :return observed_properties: The phenomena that are observed
-    :return event_time: Timestamp of first,last requested observation
-    """
-
-    if options['procedure'] == '':
-        procedure = None
-    else:
-        procedure = options['procedure']
-
-    if options['observed_properties'] == '':
-        observed_properties = ''
-        for observed_property in service[offering].observed_properties:
-            observed_properties += '{},'.format(observed_property)
-        observed_properties = observed_properties[:-1]
-    else:
-        observed_properties = options['observed_properties']
-
-    if options['event_time'] == '':
-        beginTimestamp = str(service[offering].begin_position)
-        beginTimestamp = 'T'.join(beginTimestamp.split(' '))
-        endTimestamp = str(service[offering].end_position)
-        endTimestamp = 'T'.join(endTimestamp.split(' '))
-        event_time = '{}/{}'.format(beginTimestamp, endTimestamp)
-    else:
-        event_time = options['event_time']
-
-    return procedure, observed_properties, event_time
-
-
 def create_maps(parsed_obs, offering, secondsGranularity):
     """
     Create raster maps representing offerings, observed props and procedures
@@ -346,7 +270,7 @@ def create_maps(parsed_obs, offering, secondsGranularity):
     :param secondsGranularity: Granularity in seconds
     """
 
-    timestampPattern = '%Y-%m-%dT%H:%M:%S' # TODO: Timezone
+    timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
     startTime = options['event_time'].split('+')[0]
     epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
     endTime = options['event_time'].split('+')[1].split('/')[1]

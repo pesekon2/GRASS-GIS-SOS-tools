@@ -136,16 +136,19 @@ try:
     from grass.pygrass.vector import VectorTopo
     from grass.pygrass.vector.geometry import Point
     from grass.pygrass.vector.table import Link
+    from grass.pygrass.utils import get_lib_path
     import grass.temporal as tgis
 except ImportError as e:
     sys.stderr.write('Error importing internal libs. '
                      'Did you run the script from GRASS GIS?\n')
     raise(e)
 
-sys.path.append('/home/ondrej/workspace/GRASS-GIS-SOS-tools/format_conversions')
-# TODO: Incorporate format conversions into OWSLib and don't use absolute path
-from xml2geojson import xml2geojson
-from json2geojson import json2geojson
+path = get_lib_path(modname='sos', libname='libsos')
+if path is None:
+    grass.script.fatal('Not able to find the sos library directory.')
+sys.path.append(path)
+from soslib import xml2geojson, json2geojson
+from soslib import handle_not_given_options
 
 
 def cleanup():
@@ -169,7 +172,8 @@ def main():
 
     for offering in options['offering'].split(','):
         procedure, observed_properties, event_time = handle_not_given_options(
-            service, offering)
+            service, off, options['procedure'], options['observed_properties'],
+            options['event_time'])
         for observedProperty in observed_properties.split(','):
             mapName = '{}_{}_{}'.format(options['output'], offering,
                                         observedProperty)
@@ -227,42 +231,6 @@ def create_temporal(mapsListFile, mapName):
                         maps='{}'.format(rasterMap.strip()),
                         start=mapTimestamp,
                         quiet=True)
-
-
-def handle_not_given_options(service, offering=None):
-    # DUPLICATED: Also in v.in.sos
-    """
-    If there are not given some options, use the full scale
-    :param service: Service which we are requesting parameters for
-    :param offering: A collection of sensors used to conveniently group them up
-    :return procedure: Who provide the observations (mostly the sensor)
-    :return observed_properties: The phenomena that are observed
-    :return event_time: Timestamp of first,last requested observation
-    """
-
-    if options['procedure'] == '':
-        procedure = None
-    else:
-        procedure = options['procedure']
-
-    if options['observed_properties'] == '':
-        observed_properties = ''
-        for observed_property in service[offering].observed_properties:
-            observed_properties += '{},'.format(observed_property)
-        observed_properties = observed_properties[:-1]
-    else:
-        observed_properties = options['observed_properties']
-
-    if options['event_time'] == '':
-        beginTimestamp = str(service[offering].begin_position)
-        beginTimestamp = 'T'.join(beginTimestamp.split(' '))
-        endTimestamp = str(service[offering].end_position)
-        endTimestamp = 'T'.join(endTimestamp.split(' '))
-        event_time = '{}/{}'.format(beginTimestamp, endTimestamp)
-    else:
-        event_time = options['event_time']
-
-    return procedure, observed_properties, event_time
 
 
 if __name__ == "__main__":
