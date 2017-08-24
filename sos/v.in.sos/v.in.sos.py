@@ -220,6 +220,8 @@ def create_maps(parsed_obs, offering, layer, new):
     """
 
     i = layer + 1
+    points = dict()
+    freeCat = 1
 
     for key, observation in parsed_obs.iteritems():
 
@@ -261,8 +263,15 @@ def create_maps(parsed_obs, offering, layer, new):
                 else:
                     insert[cols.index((item, 'VARCHAR'))] = value
 
-            new.write(Point(*a['geometry']['coordinates']),
-                      insert[1:])
+            if a['properties']['name'] not in points.keys():
+                points.update({a['properties']['name']: freeCat})
+                freeCat += 1
+                new.write(Point(*a['geometry']['coordinates']),
+                          insert[1:])
+            else:
+                new.write(Point(*a['geometry']['coordinates']),
+                          cat=points[a['properties']['name']],
+                          attrs=insert[1:])
 
         new.table.conn.commit()
         new.close()
