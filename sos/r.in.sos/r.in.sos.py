@@ -117,10 +117,11 @@
 #% guisection: Data
 #%end
 #%option
-#% key: aggregation
+#% key: method
 #% type: string
-#% label: Aggregation used in case of granularity
-#% options: mean, sum
+#% label: Aggregation method used in case of granularity
+#% options: average, sum
+#% answer: average
 #% required: no
 #% guisection: Data
 #%end
@@ -340,11 +341,11 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                     else:
                         i += 1
 
-                    if options['aggregation'] == 'mean':
+                    if options['method'] == 'average':
                         value = sum(values) / len(values)
-                    elif options['aggregation'] == 'sum':
+                    elif options['method'] == 'sum':
                         value = sum(values)
-                    # TODO: Other aggregations
+                    # TODO: Other aggregations methods
 
                     new.write(Point(*geometries[procedure]),
                               cat=i,
