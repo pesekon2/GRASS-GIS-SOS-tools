@@ -173,12 +173,12 @@ def main():
     service = SensorObservationService(options['url'],
                                        version=options['version'])
 
-    for offering in options['offering'].split(','):
+    for off in options['offering'].split(','):
         procedure, observed_properties, event_time = handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
         for observedProperty in observed_properties.split(','):
-            mapName = '{}_{}_{}'.format(options['output'], offering,
+            mapName = '{}_{}_{}'.format(options['output'], off,
                                         observedProperty)
             if ':' in mapName:
                 mapName = '_'.join(mapName.split(':'))
