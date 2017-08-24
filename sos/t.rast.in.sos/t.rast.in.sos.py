@@ -162,7 +162,10 @@ def main():
         if val is True:
             fl += f
 
-    run_command('r.in.sos', flags=fl, **options)
+    try:
+        run_command('r.in.sos', flags=fl, **options)
+    except:
+        return 0
     if any(value is True and key in [
            'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
         return 0
@@ -200,7 +203,7 @@ def get_maps(mapName):
     tmpFile = grass.tempfile()
     run_command('g.list', type='raster',
                 pattern='{}_*'.format(mapName),
-                output=tmpFile)
+                output=tmpFile, overwrite=True)
 
     return tmpFile
 
