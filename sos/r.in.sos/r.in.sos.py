@@ -45,8 +45,8 @@
 #% guisection: SOS description
 #%end
 #%flag
-#% key: f
-#% description: Force deletion of created intermediates vector maps
+#% key: k
+#% description: Keep intermediates vector maps
 #%end
 #%option
 #% key: url
@@ -361,7 +361,7 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                             label_column='name', type='point',
                             quiet=True)
 
-                if flags['f'] is True:
+                if flags['k'] is False:
                     run_command('g.remove', 'f', type='vector',
                                 name=tableName, quiet=True)
 

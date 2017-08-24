@@ -157,7 +157,7 @@ def cleanup():
 
 def main():
 
-    fl = 'f'
+    fl = str()
     for f, val in flags.iteritems():
         if val is True:
             fl += f
