@@ -217,7 +217,7 @@ def main():
     if options['resolution'] == '':
         resolution = None
     else:
-        resolution=float(options['resolution'])
+        resolution = float(options['resolution'])
 
     if options['bbox'] != '':
         bbox = options['bbox'].split(',')
@@ -262,29 +262,6 @@ def main():
         create_maps(parsed_obs, off, secondsGranularity, resolution)
 
     return 0
-
-
-def get_seconds_granularity():
-    """
-    transform given granularity from given format into number of seconds
-    :return secondsGranularity: Number of seconds defining granularity
-    """
-
-    if options['granularity_units'] == 'seconds':
-        secondsGranularity = int(options['granularity'])
-    elif options['granularity_units'] == 'minutes':
-        secondsGranularity = int(options['granularity']) * 60
-    elif options['granularity_units'] == 'hours':
-        secondsGranularity = int(options['granularity']) * 3600
-    elif options['granularity_units'] == 'days':
-        secondsGranularity = int(options['granularity']) * 86400
-    elif options['granularity_units'] == 'months':
-        # TODO: Make more month depending
-        secondsGranularity = int(options['granularity']) * 2592000
-    elif options['granularity_units'] == 'minutes':
-        secondsGranularity = int(options['granularity']) * 31556926
-
-    return secondsGranularity
 
 
 def create_maps(parsed_obs, offering, secondsGranularity, resolution):
