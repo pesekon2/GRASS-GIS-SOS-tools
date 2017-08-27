@@ -141,6 +141,12 @@
 #% guisection: Data
 #%end
 #%option
+#% key: resolution
+#% type: string
+#% label: 2D grid resolution (north-south and east-west)
+#% guisection: Data
+#%end
+#%option
 #% key: username
 #% type: string
 #% description: Username with access to server
@@ -212,14 +218,20 @@ def main():
     else:
         secondsGranularity = 1
 
+    if options['resolution'] == '':
+        resolution = None
+    else:
+        resolution=float(options['resolution'])
+
     if options['bbox'] != '':
         bbox = options['bbox'].split(',')
         run_command('g.region', n=float(bbox[0]), e=float(bbox[1]),
-                    s=float(bbox[2]), w=float(bbox[3]))
+                    s=float(bbox[2]), w=float(bbox[3]),
+                    res=resolution)
     else:
-        grass.warning('You have not setted the bounding box. Bounding box will '
-                      'be setted automatically for every map based on '
-                      'procedures geometries. ')
+        grass.warning('You have not setted the bounding box. Bounding box will'
+                      ' be automatically based on procedure geometries for '
+                      'every map.')
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
@@ -251,7 +263,7 @@ def main():
                                  'parameter, observed properties, procedures '
                                  'or offerings')
 
-        create_maps(parsed_obs, off, secondsGranularity)
+        create_maps(parsed_obs, off, secondsGranularity, resolution)
 
     return 0
 
@@ -279,7 +291,7 @@ def get_seconds_granularity():
     return secondsGranularity
 
 
-def create_maps(parsed_obs, offering, secondsGranularity):
+def create_maps(parsed_obs, offering, secondsGranularity, resolution):
     """
     Create raster maps representing offerings, observed props and procedures
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -294,6 +306,9 @@ def create_maps(parsed_obs, offering, secondsGranularity):
     epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
     for key, observation in parsed_obs.iteritems():
+        print('Creating raster maps for offering '
+              '{}, observed property {}'.format(offering, key))
+
         data = json.loads(observation)
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
@@ -373,7 +388,7 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                 run_command('v.build', quiet=True, map=tableName)
 
                 if options['bbox'] == '':
-                    run_command('g.region', vect=tableName) # TODO: resolution
+                    run_command('g.region', vect=tableName, res=resolution)
 
                 run_command('v.to.rast', input=tableName, output=tableName,
                             use='attr', attribute_column='value', layer=1,

@@ -113,6 +113,12 @@
 #% guisection: Data
 #%end
 #%option
+#% key: resolution
+#% type: string
+#% label: 2D grid resolution (north-south and east-west)
+#% guisection: Data
+#%end
+#%option
 #% key: username
 #% type: string
 #% description: Username with access to server
