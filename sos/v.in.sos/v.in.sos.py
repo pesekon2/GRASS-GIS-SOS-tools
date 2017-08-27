@@ -248,35 +248,66 @@ def create_maps(parsed_obs, offering, layer, new):
                 ' or recompile SQLite limits as described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
-        if new.exist() is False:
-            new.open(mode='w', layer=i, tab_name=tableName, tab_cols=cols,
-                     overwrite=True)
-        else:
-            new.open(mode='rw', layer=i, tab_name=tableName, tab_cols=cols,
-                     link_name=tableName, overwrite=True)
+        link = Link(
+            layer=i, name=tableName, table=tableName, key='cat',
+            database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
+            driver='sqlite')
+        # print(tableName)
+
+        # if new.exist() is False:
+        #     new.open(mode='w', layer=i, tab_name=tableName, tab_cols=cols,
+        #              overwrite=True)
+        # else:
+        #     new.open(mode='rw', layer=i, tab_name=tableName, tab_cols=cols,
+        #              link_name=tableName, overwrite=True)
 
         for a in data['features']:
+            if a['properties']['name'] not in points.keys():
+                if new.is_open() is False:
+                    new.open('w')
+                points.update({a['properties']['name']: freeCat})
+                freeCat += 1
+                new.write(Point(*a['geometry']['coordinates']))
+                # new.write(Point(*a['geometry']['coordinates']),
+                #           insert[1:])
+        if new.is_open():
+            new.close()
+        new.open('rw')
+        new.dblinks.add(link)
+        new.table = new.dblinks[i - 1].table()
+        new.table.create(cols)
+        for a in data['features']:
             insert = [None] * len(cols)
+            # insert = (None,) * len(cols)
             for item, value in a['properties'].iteritems():
                 if item != 'name':
                     insert[cols.index((item, 'DOUBLE'))] = value
                 else:
                     insert[cols.index((item, 'VARCHAR'))] = value
 
-            if a['properties']['name'] not in points.keys():
-                points.update({a['properties']['name']: freeCat})
-                freeCat += 1
-                new.write(Point(*a['geometry']['coordinates']),
-                          insert[1:])
-            else:
-                new.write(Point(*a['geometry']['coordinates']),
-                          cat=points[a['properties']['name']],
-                          attrs=insert[1:])
+            insert[0] = points[a['properties']['name']]
+            # print(tuple(insert))
+            new.table.insert(tuple(insert))
+            # if a['properties']['name'] not in points.keys():
+            #     points.update({a['properties']['name']: freeCat})
+            #     freeCat += 1
+            #     new.write(Point(*a['geometry']['coordinates']),
+            #               insert[1:])
+            # else:
+            #     new.write(cat=points[a['properties']['name']],
+            #               attrs=insert[1:])
 
-        new.table.conn.commit()
+            new.table.conn.commit()
         new.close()
 
         i += 1
+
+    with VectorTopo(options['output'], mode='r', layer=1) as new:
+        pnt1 = new[1]
+        print('*'*200)
+        print(pnt1)
+        print(pnt1.attrs)
+        print(new.layer, pnt1, pnt1.attrs.values())
 
 
 if __name__ == "__main__":
