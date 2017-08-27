@@ -102,17 +102,9 @@
 #%end
 #%option
 #% key: granularity
-#% type: integer
-#% label: Granularity used to aggregate data
-#% description: If not given, all data for event_time will be returned
-#% required: no
-#% guisection: Data
-#%end
-#%option
-#% key: granularity_units
 #% type: string
-#% label: Unit must be set in case of granularity input
-#% options: years, months, days, hours, minutes, seconds
+#% label: Granularity used to aggregate data
+#% description: Based on the hierarchy that 1 year equals 365.2425 days
 #% required: no
 #% guisection: Data
 #%end
@@ -214,7 +206,11 @@ def main():
             "parameters to get the data")
 
     if options['granularity'] != '':
-        secondsGranularity = get_seconds_granularity()
+        import grass.temporal as tgis
+        tgis.init()
+        secondsGranularity = int(tgis.gran_to_gran(options['granularity'],
+                                                   '1 second',
+                                                   True))
     else:
         secondsGranularity = 1
 

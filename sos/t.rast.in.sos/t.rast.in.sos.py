@@ -98,6 +98,23 @@
 #% guisection: Request
 #%end
 #%option
+#% key: granularity
+#% type: string
+#% label: Granularity used to aggregate data
+#% description: Based on the hierarchy that 1 year equals 365.2425 days
+#% required: no
+#% guisection: Data
+#%end
+#%option
+#% key: method
+#% type: string
+#% label: Aggregation method used in case of granularity
+#% options: average, sum
+#% answer: average
+#% required: no
+#% guisection: Data
+#%end
+#%option
 #% key: version
 #% type: string
 #% description: Version of SOS server
