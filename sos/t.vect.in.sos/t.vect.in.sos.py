@@ -99,6 +99,23 @@
 #% guisection: Request
 #%end
 #%option
+#% key: granularity
+#% type: string
+#% label: Granularity used to aggregate data
+#% description: Based on the hierarchy that 1 year equals 365.2425 days
+#% required: no
+#% guisection: Data
+#%end
+#%option
+#% key: method
+#% type: string
+#% label: Aggregation method used in case of granularity
+#% options: average, sum
+#% answer: average
+#% required: no
+#% guisection: Data
+#%end
+#%option
 #% key: version
 #% type: string
 #% description: Version of SOS server
@@ -130,6 +147,7 @@ import sys
 from sqlite3 import OperationalError
 import json
 import tempfile
+import time, datetime
 try:
     from owslib.sos import SensorObservationService
     from grass.script import parser, run_command, overwrite, pipe_command
@@ -174,6 +192,15 @@ def main():
         raise AttributeError("You have to define any flags or use 'output' and"
                              " 'offering' parameters to get the data")
 
+    if options['granularity'] != '':
+        import grass.temporal as tgis
+        tgis.init()
+        secondsGranularity = int(tgis.gran_to_gran(options['granularity'],
+                                                   '1 second',
+                                                   True))
+    else:
+        secondsGranularity = 1
+
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
         procedure, observed_properties, event_time = handle_not_given_options(
@@ -207,17 +234,23 @@ def main():
                 'There is no data, could you change the time parameter, '
                 'observed properties, procedures or offerings')
 
-        create_maps(parsed_obs, off)
+        create_maps(parsed_obs, off, secondsGranularity)
 
     return 0
 
 
-def create_maps(parsed_obs, offering):
+def create_maps(parsed_obs, offering, secondsGranularity):
     """
     Create vector map representing offerings and observed properties
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
     """
+
+    timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
+    startTime = options['event_time'].split('+')[0]
+    epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
+    endTime = options['event_time'].split('+')[1].split('/')[1]
+    epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
     for key, observation in parsed_obs.iteritems():
 
@@ -251,44 +284,68 @@ def create_maps(parsed_obs, offering):
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
 
+        intervals = {}
+        for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
+            intervals.update({secondsStamp: dict()})
+
+        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+
         i = 1
         layersTimestamps = list()
         for a in data['features']:
             name = a['properties']['name']
             for timestamp, value in a['properties'].iteritems():
                 if timestamp != 'name':
-                    tableName = '{}_{}_{}_{}'.format(options['output'],
-                                                     offering, key, timestamp)
-                    if ':' in tableName:
-                        tableName = '_'.join(tableName.split(':'))
-                    if '-' in tableName:
-                        tableName = '_'.join(tableName.split('-'))
-                    if '.' in tableName:
-                        tableName = '_'.join(tableName.split('.'))
+                    observationStartTime = timestamp[:-4]
+                    secondsTimestamp = int(time.mktime(
+                        time.strptime(observationStartTime, timestampPattern)))
+                    for interval in intervals.keys():
+                        if secondsTimestamp >= interval \
+                                and secondsTimestamp < (
+                                            interval + secondsGranularity):
+                            if name in intervals[interval].keys():
+                                intervals[interval][name].append(float(value))
+                            else:
+                                intervals[interval].update(
+                                    {name: [float(value)]})
+                            break
 
-                    if new.exist() is False:
-                        new.open(mode='w', layer=i, tab_name=tableName,
-                                 tab_cols=cols, overwrite=True)
+        for interval in intervals.keys():
+            if len(intervals[interval]) != 0:
+                timestamp = datetime.datetime.fromtimestamp(
+                    interval).strftime('t%Y%m%dT%H%M%S')
+                tableName = '{}_{}_{}_{}'.format(options['output'],
+                                                 offering, key, timestamp)
+                if ':' in tableName:
+                    tableName = '_'.join(tableName.split(':'))
+                if '-' in tableName:
+                    tableName = '_'.join(tableName.split('-'))
+                if '.' in tableName:
+                    tableName = '_'.join(tableName.split('.'))
+
+                if new.exist() is False:
+                    new.open(mode='w', layer=i, tab_name=tableName,
+                             tab_cols=cols, overwrite=True)
+
+                    i += 1
+                    layersTimestamps.append(timestamp)
+                else:
+                    if timestamp not in layersTimestamps:
+                        new.open(mode='rw', layer=i, tab_name=tableName,
+                                 tab_cols=cols, link_name=tableName,
+                                 overwrite=True)
 
                         i += 1
                         layersTimestamps.append(timestamp)
                     else:
-                        if timestamp not in layersTimestamps:
-                            new.open(mode='rw', layer=i, tab_name=tableName,
-                                     tab_cols=cols, link_name=tableName,
-                                     overwrite=True)
+                        new.open(mode='rw',
+                                 layer=layersTimestamps.index(timestamp)+1)
 
-                            i += 1
-                            layersTimestamps.append(timestamp)
-                        else:
-                            new.open(mode='rw',
-                                     layer=layersTimestamps.index(timestamp)+1)
-
-                    new.write(Point(*a['geometry']['coordinates']),
-                              (name, value))
-                    new.table.conn.commit()
-                    new.close(build=False)
-                    run_command('v.build', map=mapName, quiet=True)
+                new.write(Point(*a['geometry']['coordinates']),
+                          (name, value))
+                new.table.conn.commit()
+                new.close(build=False)
+                run_command('v.build', map=mapName, quiet=True)
 
         if len(cols) > 2000:
             grass.warning(
