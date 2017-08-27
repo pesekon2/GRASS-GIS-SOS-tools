@@ -106,6 +106,13 @@
 #% answer: 1.0.0
 #%end
 #%option
+#% key: bbox
+#% type: string
+#% label: Bounding box
+#% description: n,e,s,w
+#% guisection: Data
+#%end
+#%option
 #% key: username
 #% type: string
 #% description: Username with access to server

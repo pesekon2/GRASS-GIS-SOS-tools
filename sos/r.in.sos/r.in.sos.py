@@ -134,6 +134,13 @@
 #% answer: 1.0.0
 #%end
 #%option
+#% key: bbox
+#% type: string
+#% label: Bounding box
+#% description: n,e,s,w
+#% guisection: Data
+#%end
+#%option
 #% key: username
 #% type: string
 #% description: Username with access to server
@@ -204,6 +211,15 @@ def main():
         secondsGranularity = get_seconds_granularity()
     else:
         secondsGranularity = 1
+
+    if options['bbox'] != '':
+        bbox = options['bbox'].split(',')
+        run_command('g.region', n=float(bbox[0]), e=float(bbox[1]),
+                    s=float(bbox[2]), w=float(bbox[3]))
+    else:
+        grass.warning('You have not setted the bounding box. Bounding box will '
+                      'be setted automatically for every map based on '
+                      'procedures geometries. ')
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
@@ -334,7 +350,7 @@ def create_maps(parsed_obs, offering, secondsGranularity):
 
                 new.open(mode='w', layer=1, tab_name=tableName,
                          link_name=tableName, tab_cols=cols, overwrite=True)
-                i = 1
+                i = 0
                 for procedure, values in intervals[interval].iteritems():
                     if new.exist() is False:
                         i = 1
@@ -356,7 +372,9 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                 new.close(build=False)
                 run_command('v.build', quiet=True, map=tableName)
 
-                run_command('g.region', vect=tableName)
+                if options['bbox'] == '':
+                    run_command('g.region', vect=tableName) # TODO: resolution
+
                 run_command('v.to.rast', input=tableName, output=tableName,
                             use='attr', attribute_column='value', layer=1,
                             label_column='name', type='point',
