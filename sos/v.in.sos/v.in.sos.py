@@ -248,13 +248,24 @@ def create_maps(parsed_obs, offering, layer, new):
                 ' or recompile SQLite limits as described at '
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
-        if new.exist() is False:
-            new.open(mode='w', layer=i, tab_name=tableName, tab_cols=cols,
-                     overwrite=True)
-        else:
-            new.open(mode='rw', layer=i, tab_name=tableName, tab_cols=cols,
-                     link_name=tableName, overwrite=True)
+        link = Link(
+            layer=i, name=tableName, table=tableName, key='cat',
+            database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
+            driver='sqlite')
 
+        for a in data['features']:
+            if a['properties']['name'] not in points.keys():
+                if new.is_open() is False:
+                    new.open('w')
+                points.update({a['properties']['name']: freeCat})
+                new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
+                freeCat += 1
+        if new.is_open():
+            new.close()
+        new.open('rw')
+        new.dblinks.add(link)
+        new.table = new.dblinks[i - 1].table()
+        new.table.create(cols)
         for a in data['features']:
             insert = [None] * len(cols)
             for item, value in a['properties'].iteritems():
@@ -263,18 +274,12 @@ def create_maps(parsed_obs, offering, layer, new):
                 else:
                     insert[cols.index((item, 'VARCHAR'))] = value
 
-            if a['properties']['name'] not in points.keys():
-                points.update({a['properties']['name']: freeCat})
-                freeCat += 1
-                new.write(Point(*a['geometry']['coordinates']),
-                          insert[1:])
-            else:
-                new.write(Point(*a['geometry']['coordinates']),
-                          cat=points[a['properties']['name']],
-                          attrs=insert[1:])
+            insert[0] = points[a['properties']['name']]
+            new.table.insert(tuple(insert))
 
-        new.table.conn.commit()
-        new.close()
+            new.table.conn.commit()
+        new.close(build=False)
+        run_command('v.build', quiet=True, map=options['output'])
 
         i += 1
 
