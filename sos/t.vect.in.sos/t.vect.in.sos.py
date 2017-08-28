@@ -274,6 +274,8 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                           'property {}'.format(offering, key),
                     description='Vector space time dataset')
 
+        freeCat = 1
+        points = dict()
         new = VectorTopo(mapName)
         if overwrite() is True:
             try:
@@ -292,10 +294,15 @@ def create_maps(parsed_obs, offering, secondsGranularity):
 
         timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
 
-        i = 1
-        layersTimestamps = list()
         for a in data['features']:
             name = a['properties']['name']
+            if a['properties']['name'] not in points.keys():
+                if new.is_open() is False:
+                    new.open('w')
+                points.update({a['properties']['name']: freeCat})
+                new.write(Point(*a['geometry']['coordinates']))
+                freeCat += 1
+
             for timestamp, value in a['properties'].iteritems():
                 if timestamp != 'name':
                     observationStartTime = timestamp[:-4]
@@ -312,12 +319,18 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                                     {name: [float(value)]})
                             break
 
+        if new.is_open():
+            new.close(build=False)
+            run_command('v.build', map=mapName, quiet=True)
+
+        i = 1
+        layersTimestamps = list()
         for interval in intervals.keys():
             if len(intervals[interval]) != 0:
                 timestamp = datetime.datetime.fromtimestamp(
                     interval).strftime('t%Y%m%dT%H%M%S')
-                tableName = '{}_{}_{}_{}'.format(options['output'],
-                                                 offering, key, timestamp)
+                tableName = '{}_{}_{}_{}'.format(options['output'], offering,
+                                                 key, timestamp)
                 if ':' in tableName:
                     tableName = '_'.join(tableName.split(':'))
                 if '-' in tableName:
@@ -325,36 +338,24 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                 if '.' in tableName:
                     tableName = '_'.join(tableName.split('.'))
 
-                if new.exist() is False:
-                    new.open(mode='w', layer=i, tab_name=tableName,
-                             tab_cols=cols, overwrite=True)
+                new.open('rw')
+                db = '$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db'
+                link = Link(layer=i, name=tableName, table=tableName,
+                            key='cat', database=db, driver='sqlite')
+                new.dblinks.add(link)
+                new.table = new.dblinks[i-1].table()
+                new.table.create(cols)
 
-                    i += 1
-                    layersTimestamps.append(timestamp)
-                else:
-                    if timestamp not in layersTimestamps:
-                        new.open(mode='rw', layer=i, tab_name=tableName,
-                                 tab_cols=cols, link_name=tableName,
-                                 overwrite=True)
+                i += 1
+                layersTimestamps.append(timestamp)
 
-                        i += 1
-                        layersTimestamps.append(timestamp)
-                    else:
-                        new.open(mode='rw',
-                                 layer=layersTimestamps.index(timestamp)+1)
+                for name, value in intervals[interval].iteritems():
+                    # TODO: Granulation
+                    new.table.insert(tuple([points[name], name, value[0]]))
+                    new.table.conn.commit()
 
-                new.write(Point(*a['geometry']['coordinates']),
-                          (name, value))
-                new.table.conn.commit()
                 new.close(build=False)
                 run_command('v.build', map=mapName, quiet=True)
-
-        if len(cols) > 2000:
-            grass.warning(
-                'Recommended number of columns is less than 2000, you have '
-                'reached {}\nYou should set an event_time with a smaller range'
-                ' or recompile SQLite limits as  described at '
-                'https://sqlite.org/limits.html'.format(len(cols)))
 
         create_temporal(mapName, i, layersTimestamps)
 
