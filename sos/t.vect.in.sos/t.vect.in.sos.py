@@ -349,9 +349,13 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                 i += 1
                 layersTimestamps.append(timestamp)
 
-                for name, value in intervals[interval].iteritems():
-                    # TODO: Granulation
-                    new.table.insert(tuple([points[name], name, value[0]]))
+                for name, values in intervals[interval].iteritems():
+                    if options['method'] == 'average':
+                        aggregatedValue = sum(values) / len(values)
+                    elif options['method'] == 'sum':
+                        aggregatedValue = sum(values)
+
+                    new.table.insert(tuple([points[name], name, aggregatedValue]))
                     new.table.conn.commit()
 
                 new.close(build=False)
