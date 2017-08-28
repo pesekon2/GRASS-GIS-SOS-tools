@@ -158,7 +158,7 @@ def main():
 
     if any(value is True and key in [
       'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
-        get_description(service)
+        get_description(service, options, flags)
 
     if options['offering'] == '' or options['output'] == '':
         if sys.version >= (3, 0):

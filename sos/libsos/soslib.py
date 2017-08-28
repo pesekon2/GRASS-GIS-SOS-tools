@@ -123,7 +123,7 @@ def json2geojson(json_file):
     return json.dumps(a, indent=4, sort_keys=True)
 
 
-def get_description(service):
+def get_description(service, options, flags):
     """
     Return informations about the requested service if given necessary flags
     :param service: Service which we are requesting informations about
