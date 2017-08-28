@@ -95,6 +95,23 @@
 #% guisection: Request
 #%end
 #%option
+#% key: granularity
+#% type: string
+#% label: Granularity used to aggregate data
+#% description: Based on the hierarchy that 1 year equals 365.2425 days
+#% required: no
+#% guisection: Data
+#%end
+#%option
+#% key: method
+#% type: string
+#% label: Aggregation method used in case of granularity
+#% options: average, sum
+#% answer: average
+#% required: no
+#% guisection: Data
+#%end
+#%option
 #% key: version
 #% type: string
 #% description: Version of SOS server
@@ -125,6 +142,7 @@
 import sys
 import json
 from sqlite3 import OperationalError
+import time, datetime
 try:
     from owslib.sos import SensorObservationService
     from grass.script import parser, run_command
@@ -170,6 +188,15 @@ def main():
         raise AttributeError("You have to define any flags or use 'output' and"
                              " 'offering' parameters to get the data")
 
+    if options['granularity'] != '':
+        import grass.temporal as tgis
+        tgis.init()
+        secondsGranularity = int(tgis.gran_to_gran(options['granularity'],
+                                                   '1 second',
+                                                   True))
+    else:
+        secondsGranularity = 1
+
     run_command('g.remove', 'f', type='vector',
                 name=options['output'])
     new = VectorTopo(options['output'])
@@ -207,12 +234,12 @@ def main():
                 'There is no data, could you change the time parameter, '
                 'observed properties, procedures or offerings')
 
-        create_maps(parsed_obs, off, layerscount, new)
+        create_maps(parsed_obs, off, layerscount, new, secondsGranularity)
         layerscount += len(parsed_obs)
     return 0
 
 
-def create_maps(parsed_obs, offering, layer, new):
+def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
     """
     Add layers representing offerings and observed properties to the vector map
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -224,6 +251,12 @@ def create_maps(parsed_obs, offering, layer, new):
     i = layer + 1
     points = dict()
     freeCat = 1
+
+    timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
+    startTime = options['event_time'].split('+')[0]
+    epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
+    endTime = options['event_time'].split('+')[1].split('/')[1]
+    epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
     for key, observation in parsed_obs.iteritems():
 
@@ -237,11 +270,37 @@ def create_maps(parsed_obs, offering, layer, new):
 
         data = json.loads(observation)
 
+        intervals = {}
+        for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
+            intervals.update({secondsStamp: dict()})
+
+        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
         for a in data['features']:
-            for b in a['properties'].keys():
-                if b != 'name' and (u'%s' % b, 'DOUBLE') not in cols:
-                    cols.append((u'%s' % b, 'DOUBLE'))
+            name = a['properties']['name']
+            for timestamp, value in a['properties'].iteritems():
+                if timestamp != 'name':
+                    observationStartTime = timestamp[:-4]
+                    secondsTimestamp = int(time.mktime(
+                        time.strptime(observationStartTime, timestampPattern)))
+                    for interval in intervals.keys():
+                        if secondsTimestamp >= interval \
+                                and secondsTimestamp < (
+                                            interval + secondsGranularity):
+                            if name in intervals[interval].keys():
+                                intervals[interval][name].append(float(value))
+                            else:
+                                timestamp2 = datetime.datetime.fromtimestamp(
+                                    interval).strftime('t%Y%m%dT%H%M%S')
+                                intervals[interval].update(
+                                    {name: [float(value)]})
+                                if (u'%s' % timestamp2, 'DOUBLE') not in cols:
+                                    cols.append((u'%s' % timestamp2, 'DOUBLE'))
+                            break
+            # for b in a['properties'].keys():
+            #     if b != 'name' and (u'%s' % b, 'DOUBLE') not in cols:
+            #         cols.append((u'%s' % b, 'DOUBLE'))
 
         if len(cols) > 2000:
             grass.warning(
@@ -262,24 +321,51 @@ def create_maps(parsed_obs, offering, layer, new):
                 points.update({a['properties']['name']: freeCat})
                 new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
                 freeCat += 1
+
         if new.is_open():
             new.close()
+
         new.open('rw')
         new.dblinks.add(link)
         new.table = new.dblinks[i - 1].table()
         new.table.create(cols)
-        for a in data['features']:
-            insert = [None] * len(cols)
-            for item, value in a['properties'].iteritems():
-                if item != 'name':
-                    insert[cols.index((item, 'DOUBLE'))] = value
-                else:
-                    insert[cols.index((item, 'VARCHAR'))] = value
+        inserts = dict()
+        for interval in intervals.keys():
+            if len(intervals[interval]) != 0:
+                timestamp = datetime.datetime.fromtimestamp(
+                    interval).strftime('t%Y%m%dT%H%M%S')
+                print(cols)
+                for name, values in intervals[interval].iteritems():
+                    if options['method'] == 'average':
+                        aggregatedValue = sum(values) / len(values)
+                    elif options['method'] == 'sum':
+                        aggregatedValue = sum(values)
+                    if name not in inserts.keys():
+                        insert = [None] * len(cols)
+                        insert[0] = points[name]
+                        insert[1] = name
+                        insert[cols.index((timestamp, 'DOUBLE'))] = aggregatedValue
+                        inserts.update({name: insert})
+                    else:
+                        inserts[name][cols.index((timestamp, 'DOUBLE'))] = aggregatedValue
 
-            insert[0] = points[a['properties']['name']]
+        for insert in inserts.values():
+            print(insert)
             new.table.insert(tuple(insert))
-
             new.table.conn.commit()
+
+        # for a in data['features']:
+        #     insert = [None] * len(cols)
+        #     for item, value in a['properties'].iteritems():
+        #         if item != 'name':
+        #             insert[cols.index((item, 'DOUBLE'))] = value
+        #         else:
+        #             insert[cols.index((item, 'VARCHAR'))] = value
+        #
+        #     insert[0] = points[a['properties']['name']]
+        #     new.table.insert(tuple(insert))
+        #
+        #     new.table.conn.commit()
         new.close(build=False)
         run_command('v.build', quiet=True, map=options['output'])
 
