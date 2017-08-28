@@ -154,7 +154,9 @@ def main():
     layerscount = 0
 
     service = SensorObservationService(options['url'],
-                                       version=options['version'])
+                                       version=options['version'],
+                                       username=options['username'],
+                                       password=options['password'])
 
     if any(value is True and key in [
       'o', 'v', 'p', 't'] for key, value in flags.iteritems()):

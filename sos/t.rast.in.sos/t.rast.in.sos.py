@@ -201,7 +201,9 @@ def main():
         return 0
 
     service = SensorObservationService(options['url'],
-                                       version=options['version'])
+                                       version=options['version'],
+                                       username=options['username'],
+                                       password=options['password'])
 
     for off in options['offering'].split(','):
         procedure, observed_properties, event_time = handle_not_given_options(
