@@ -232,9 +232,10 @@ def main():
                 sys.tracebacklimit = None
             else:
                 sys.tracebacklimit = 0
-            raise AttributeError(
-                'There is no data, could you change the time parameter, '
-                'observed properties, procedures or offerings')
+            raise AttributeError('There is no data for at least one of your '
+                                 'procedures, could  you change the time '
+                                 'parameter, observed properties, '
+                                 'procedures or offerings')
 
         create_maps(parsed_obs, off, secondsGranularity)
 
