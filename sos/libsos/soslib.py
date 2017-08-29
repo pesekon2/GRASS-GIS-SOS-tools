@@ -180,7 +180,7 @@ def get_description(service, options, flags):
             endTimestamp = 'T'.join(endTimestamp.split(' '))
             if flags['g'] is False:
                 print('Begin timestamp/end timestamp of '
-                      '{} offering:'.format(options['offering']))
+                      '{} offering:'.format(offering))
                 print('{}/{}'.format(beginTimestamp, endTimestamp))
             else:
                 print('start_time={}'.format(beginTimestamp))
