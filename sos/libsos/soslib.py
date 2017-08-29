@@ -60,8 +60,18 @@ def xml2geojson(xml_file, observedProperty):
                     timeStamp = 't%s' % values.split(tokenSeparator)[0]
                     for character in [':', '-', '+']:
                         timeStamp = ''.join(timeStamp.split(character))
-                    data.update(
-                        {timeStamp: values.split(tokenSeparator)[wantedIndex]})
+                    try:
+                        data.update({timeStamp: values.split(
+                            tokenSeparator)[wantedIndex]})
+                    except UnboundLocalError:
+                        if sys.version >= (3, 0):
+                            sys.tracebacklimit = None
+                        else:
+                            sys.tracebacklimit = 0
+                        raise UnboundLocalError(
+                            'At least one of observed properties was not found.'
+                            ' Please check it for typos and controll it with '
+                            '-v flag.')
             elif 'location' in item.tag:
                 point = list(item)[0]
                 geometryType = point.tag.split('}')[1]
