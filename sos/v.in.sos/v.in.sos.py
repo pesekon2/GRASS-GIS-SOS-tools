@@ -280,6 +280,14 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
         for a in data['features']:
             name = a['properties']['name']
+
+            if name not in points.keys():
+                if new.is_open() is False:
+                    new.open('w')
+                points.update({name: freeCat})
+                new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
+                freeCat += 1
+
             for timestamp, value in a['properties'].iteritems():
                 if timestamp != 'name':
                     observationStartTime = timestamp[:-4]
@@ -299,9 +307,6 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
                                 if (u'%s' % timestamp2, 'DOUBLE') not in cols:
                                     cols.append((u'%s' % timestamp2, 'DOUBLE'))
                             break
-            # for b in a['properties'].keys():
-            #     if b != 'name' and (u'%s' % b, 'DOUBLE') not in cols:
-            #         cols.append((u'%s' % b, 'DOUBLE'))
 
         if len(cols) > 2000:
             grass.warning(
@@ -315,14 +320,6 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
             database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
             driver='sqlite')
 
-        for a in data['features']:
-            if a['properties']['name'] not in points.keys():
-                if new.is_open() is False:
-                    new.open('w')
-                points.update({a['properties']['name']: freeCat})
-                new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
-                freeCat += 1
-
         if new.is_open():
             new.close()
 
@@ -335,12 +332,13 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
             if len(intervals[interval]) != 0:
                 timestamp = datetime.datetime.fromtimestamp(
                     interval).strftime('t%Y%m%dT%H%M%S')
-                print(cols)
+
                 for name, values in intervals[interval].iteritems():
                     if options['method'] == 'average':
                         aggregatedValue = sum(values) / len(values)
                     elif options['method'] == 'sum':
                         aggregatedValue = sum(values)
+
                     if name not in inserts.keys():
                         insert = [None] * len(cols)
                         insert[0] = points[name]
@@ -351,22 +349,9 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
                         inserts[name][cols.index((timestamp, 'DOUBLE'))] = aggregatedValue
 
         for insert in inserts.values():
-            print(insert)
             new.table.insert(tuple(insert))
             new.table.conn.commit()
 
-        # for a in data['features']:
-        #     insert = [None] * len(cols)
-        #     for item, value in a['properties'].iteritems():
-        #         if item != 'name':
-        #             insert[cols.index((item, 'DOUBLE'))] = value
-        #         else:
-        #             insert[cols.index((item, 'VARCHAR'))] = value
-        #
-        #     insert[0] = points[a['properties']['name']]
-        #     new.table.insert(tuple(insert))
-        #
-        #     new.table.conn.commit()
         new.close(build=False)
         run_command('v.build', quiet=True, map=options['output'])
 
