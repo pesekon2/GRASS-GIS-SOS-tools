@@ -22,6 +22,13 @@ from osgeo import ogr, osr
 
 
 def xml2geojson(xml_file, observedProperty):
+    """
+    Convert file in standard xml (text/xml;subtype="om/1.0.0") to geoJSON
+    :param xml_file: Response from SOS server in text/xml;subtype="om/1.0.0"
+    :param observedProperty: One observed property from SOS response
+    :return json.dumps: Parsed response in geoJSON
+    """
+
     tree = etree.ElementTree(etree.fromstring(xml_file))
     a = {"type": "FeatureCollection", "features": []}
 
@@ -68,10 +75,10 @@ def xml2geojson(xml_file, observedProperty):
                             sys.tracebacklimit = None
                         else:
                             sys.tracebacklimit = 0
-                        raise UnboundLocalError(
-                            'At least one of observed properties was not found.'
-                            ' Please check it for typos and controll it with '
-                            '-v flag.')
+                        raise UnboundLocalError('At least one of observed '
+                                                'properties was not found. '
+                                                'Please check it for typos or'
+                                                ' control it with -v flag.')
             elif 'location' in item.tag:
                 point = list(item)[0]
                 geometryType = point.tag.split('}')[1]
@@ -91,6 +98,11 @@ def xml2geojson(xml_file, observedProperty):
 
 
 def json2geojson(json_file):
+    """
+    Convert file in json format to geoJSON
+    :param json_file: Response from SOS server in json format
+    :return json.dumps: Parsed response in geoJSON
+    """
 
     json_file = json.loads(
         json_file.decode('utf-8'))['ObservationCollection']['member']
@@ -137,6 +149,8 @@ def get_description(service, options, flags):
     """
     Return informations about the requested service if given necessary flags
     :param service: Service which we are requesting informations about
+    :param options: Parameters from the module
+    :param flags: Flags from the module
     """
 
     if flags['o'] is True:
@@ -182,7 +196,7 @@ def handle_not_given_options(service, offering=None, procedure=None,
     :param service: Service which we are requesting parameters for
     :param offering: A collection of sensors used to conveniently group them up
     :param procedure: Who provide the observations (mostly the sensor)
-    :param observed_properties: The phenomena that are observed
+    :param observedProperties: The phenomena that are observed
     :param eventTime: Timestamp of first,last requested observation
     """
     if procedure == '':

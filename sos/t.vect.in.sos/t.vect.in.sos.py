@@ -247,6 +247,7 @@ def create_maps(parsed_obs, offering, secondsGranularity):
     Create vector map representing offerings and observed properties
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
+    :param secondsGranularity: Granularity in seconds
     """
 
     timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
@@ -356,7 +357,9 @@ def create_maps(parsed_obs, offering, secondsGranularity):
                     elif options['method'] == 'sum':
                         aggregatedValue = sum(values)
 
-                    new.table.insert(tuple([points[name], name, aggregatedValue]))
+                    new.table.insert(tuple([points[name],
+                                            name,
+                                            aggregatedValue]))
                     new.table.conn.commit()
 
                 new.close(build=False)

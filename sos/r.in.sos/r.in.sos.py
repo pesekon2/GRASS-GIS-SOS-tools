@@ -273,6 +273,7 @@ def create_maps(parsed_obs, offering, secondsGranularity, resolution):
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
     :param secondsGranularity: Granularity in seconds
+    :param resolution: 2D grid resolution for rasterization
     """
 
     timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone

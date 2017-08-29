@@ -247,6 +247,7 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
     :param offering: A collection of sensors used to conveniently group them up
     :param layer: Count of yet existing layers in vector map
     :param new: Given vector map which should be updated with new layers
+    :param secondsGranularity: Granularity in seconds
     """
 
     i = layer + 1
@@ -343,10 +344,12 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
                         insert = [None] * len(cols)
                         insert[0] = points[name]
                         insert[1] = name
-                        insert[cols.index((timestamp, 'DOUBLE'))] = aggregatedValue
+                        insert[cols.index((timestamp,
+                                           'DOUBLE'))] = aggregatedValue
                         inserts.update({name: insert})
                     else:
-                        inserts[name][cols.index((timestamp, 'DOUBLE'))] = aggregatedValue
+                        inserts[name][cols.index((timestamp,
+                                                  'DOUBLE'))] = aggregatedValue
 
         for insert in inserts.values():
             new.table.insert(tuple(insert))
