@@ -1,0 +1,155 @@
+<h2>DESCRIPTION</h2>
+
+<em>v.in.sos</em> imports data from SOS server as vector maps to GRASS GIS.
+It creates one layer for each offering and for each observed property (name
+of the layer will be <em>output_offering_observed_property</em>).
+<p>
+User is also allowed to temporally aggregate the output by a specific temporal
+granularity. The temporal granularity can be <em>seconds</em>,
+<em>minutes</em>, <em>hours</em>, <em>days</em>, <em>weeks</em>,
+<em>months</em> or <em>years</em>. Mixing of granularities
+eg. <em>1 year, 3 months 5 days</em> is not supported.
+
+<h2>NOTES</h2>
+
+To use this module, you need your OWSLib up-to-date. If you don't have it,
+please install it from its
+<a href="https://github.com/geopython/OWSLib">github repository</a>.
+
+<h2>EXAMPLES</h2>
+
+<h3>Info about services:</h3>
+
+Get offerings:
+<div class="code"><pre>
+    > v.in.sos url=http://localhost/istsos/demo? -o
+    SOS offerings:
+    temporary
+    workshop
+</pre></div>
+
+Get other parameters for both offerings:
+<div class="code"><pre>
+    > v.in.sos url=http://localhost/istsos/demo? -o
+    Observed properties of temporary offering:
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:humidity:relative
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:rainfall
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:temperature
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:wind:velocity
+    urn:ogc:def:parameter:x-istsos:1.0:river:water:discharge
+    urn:ogc:def:parameter:x-istsos:1.0:river:water:height
+    Procedures of temporary offering:
+    arduino
+    BELLINZONA
+    LOCARNO
+    P_LUGANO
+    RH_GNOSCA
+    T_LUGANO
+    V_GNOSCA
+    V_LUGANO
+    Begin timestamp/end timestamp of temporary offering:
+    2015-05-03T16:30:00+02:00/2015-06-03T16:20:00+02:00
+    Observed properties of workshop offering:
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:humidity:relative
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:rainfall
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:temperature
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:wind:velocity
+    Procedures of workshop offering:
+    BELLINZONA
+    V_LUGANO
+    Begin timestamp/end timestamp of workshop offering:
+    2015-05-03T16:30:00+02:00/2015-06-03T14:50:00+02:00
+</pre></div>
+
+<h3>Standard usage:</h3>
+
+<div class="code"><pre>
+    v.in.sos url=http://localhost/istsos/demo? output=workshop \
+    offering=temporary procedure=BELLINZONA,LOCARNO \
+    observed_properties=air:temperature,air:rainfall \
+    event_time='2015-05-03T18:28:01+01:00/2015-05-03T19:33:01+01:00'
+</pre></div>
+
+Output:
+<div class="code"><pre>
+    Building topology for vector map workshop@user1...
+    Registering primitives...
+    2 primitives registered
+    2 vertices registered
+    Building areas...
+     100%
+    0 areas built
+    0 isles built
+    Attaching islands...
+    Attaching centroids...
+     100%
+    Number of nodes: 0
+    Number of primitives: 2
+    Number of points: 2
+    Number of lines: 0
+    Number of boundaries: 0
+    Number of centroids: 0
+    Number of areas: 0
+    Number of isles: 0
+</pre></div>
+
+v.db.select at layer two:
+<div class="code"><pre>
+    > v.db.select map=workshop layer=2
+    cat|name|t20150503T192000|t20150503T193000|t20150503T183000|t20150503T184000|t20150503T191000|t20150503T190000|t20150503T185000
+    1|BELLINZONA|17.3|16.9|19.1|18.5|17.4|17.7|18.1
+    2|LOCARNO|17.4|16.6|18.3|18.4|17.8|17.3|18.4
+</pre></div>
+
+<h3>Usage with aggregations:</h3>
+
+<div class="code"><pre>
+    v.in.sos url=http://localhost/istsos/demo? output=workshop \
+    offering=temporary procedure=BELLINZONA,LOCARNO \
+    observed_properties=air:temperature \
+    event_time='2015-05-03T18:28:01+01:00/2015-05-03T19:33:01+01:00' \
+    granularity='30 minutes' method='average'
+</pre></div>
+
+Output:
+<div class="code"><pre>
+    Building topology for vector map workshop@user1...
+    Registering primitives...
+    2 primitives registered
+    2 vertices registered
+    Building areas...
+     100%
+    0 areas built
+    0 isles built
+    Attaching islands...
+    Attaching centroids...
+     100%
+    Number of nodes: 0
+    Number of primitives: 2
+    Number of points: 2
+    Number of lines: 0
+    Number of boundaries: 0
+    Number of centroids: 0
+    Number of areas: 0
+    Number of isles: 0
+</pre></div>
+
+v.db.select:
+<div class="code"><pre>
+    > v.db.select map=workshop layer=1
+    cat|name|t20150503T185801|t20150503T192801|t20150503T182801
+    1|BELLINZONA|17.4666666666667|16.9|18.5666666666667
+    2|LOCARNO|17.5|16.6|18.3666666666667
+</pre></div>
+
+<h2>SEE ALSO</h2>
+
+<em>
+    <a href="r.in.sos.html">r.in.sos</a>
+    <a href="t.vect.in.sos.html">t.vect.in.sos</a>
+    <a href="t.vect.in.sos.html">t.rast.in.sos</a>
+</em>
+
+<h2>AUTHORS</h2>
+
+Ondrej Pesek under the supervision of Luca Delucchi. 

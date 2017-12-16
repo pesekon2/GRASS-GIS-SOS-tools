@@ -1,6 +1,6 @@
-MODULE_TOPDIR = ../..
+MODULE_TOPDIR = ../../..
 
-PGM = v.in.sos
+PGM = t.rast.in.sos
 
 include $(MODULE_TOPDIR)/include/Make/Script.make
 

@@ -1,0 +1,273 @@
+<h2>DESCRIPTION</h2>
+
+<em>t.rast.in.sos</em> imports data from SOS server as spatio-temporal
+raster datasets to GRASS GIS. They are created with suffix
+<em>offering_observed_property</em> and with raster maps for each timestamp
+as intermediates.
+<p>
+User is also allowed to temporally aggregate the output by a specific temporal
+granularity. The temporal granularity can be <em>seconds</em>,
+<em>minutes</em>, <em>hours</em>, <em>days</em>, <em>weeks</em>,
+<em>months</em> or <em>years</em>. Mixing of granularities
+eg. <em>1 year, 3 months 5 days</em> is not supported.
+
+<h2>NOTES</h2>
+
+To use this module, you need your OWSLib up-to-date. If you don't have it,
+please install it from its
+<a href="https://github.com/geopython/OWSLib">github repository</a>.
+
+<h2>EXAMPLES</h2>
+
+<h3>Info about services:</h3>
+
+Get offerings:
+<div class="code"><pre>
+    > t.rast.in.sos url=http://localhost/istsos/demo? -o
+    SOS offerings:
+    temporary
+    workshop
+</pre></div>
+
+Get other parameters for both offerings:
+<div class="code"><pre>
+    > t.rast.in.sos url=http://localhost/istsos/demo? -o
+    Observed properties of temporary offering:
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:humidity:relative
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:rainfall
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:temperature
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:wind:velocity
+    urn:ogc:def:parameter:x-istsos:1.0:river:water:discharge
+    urn:ogc:def:parameter:x-istsos:1.0:river:water:height
+    Procedures of temporary offering:
+    arduino
+    BELLINZONA
+    LOCARNO
+    P_LUGANO
+    RH_GNOSCA
+    T_LUGANO
+    V_GNOSCA
+    V_LUGANO
+    Begin timestamp/end timestamp of temporary offering:
+    2015-05-03T16:30:00+02:00/2015-06-03T16:20:00+02:00
+    Observed properties of workshop offering:
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:humidity:relative
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:rainfall
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:temperature
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:wind:velocity
+    Procedures of workshop offering:
+    BELLINZONA
+    V_LUGANO
+    Begin timestamp/end timestamp of workshop offering:
+    2015-05-03T16:30:00+02:00/2015-06-03T14:50:00+02:00
+</pre></div>
+
+<h3>Standard usage:</h3>
+
+<div class="code"><pre>
+    t.rast.in.sos url=http://localhost/istsos/demo? output=workshop \
+    offering=temporary procedure=BELLINZONA,LOCARNO \
+    observed_properties=air:temperature,air:rainfall \
+    event_time='2015-05-03T18:28:01+01:00/2015-05-03T19:33:01+01:00'
+</pre></div>
+
+Output:
+<div class="code"><pre>
+    WARNING: You have not setted the bounding box. Bounding box will be
+             automatically based on procedure geometries for every map.
+    Creating raster maps for air:rainfall...
+    Creating raster maps for air:temperature...
+</pre></div>
+
+t.list (see stvds suffix)
+<div class="code"><pre>
+    > t.list type=strds
+     ----------------------------------------------
+     Space time raster datasets with absolute time available in mapset user1:
+     workshop_temporary_air_rainfall@user1
+     workshop_temporary_air_temperature@user1
+</pre></div>
+
+t.info
+<div class="code"><pre>
+    > t.info type=strds input=workshop_temporary_air_temperature@user1
+     +-------------------- Space Time Raster Dataset -----------------------------+
+     |                                                                            |
+     +-------------------- Basic information -------------------------------------+
+     | Id: ........................ workshop_temporary_air_temperature@user1
+     | Name: ...................... workshop_temporary_air_temperature
+     | Mapset: .................... user1
+     | Creator: ................... ondrej
+     | Temporal type: ............. absolute
+     | Creation time: ............. 2017-08-29 11:52:06.181048
+     | Modification time:.......... 2017-08-29 11:52:12.229916
+     | Semantic type:.............. mean
+     +-------------------- Absolute time -----------------------------------------+
+     | Start time:................. 2015-05-03 18:30:00
+     | End time:................... 2015-05-03 19:30:00
+     | Granularity:................ 10 minutes
+     | Temporal type of maps:...... point
+     +-------------------- Spatial extent ----------------------------------------+
+     | North:...................... 46.20322
+     | South:...................... 46.15515
+     | East:.. .................... 9.01976
+     | West:....................... 8.79212
+     | Top:........................ 0.0
+     | Bottom:..................... 0.0
+     +-------------------- Metadata information ----------------------------------+
+     | Raster register table:...... raster_map_register_cb954bcc429d4fbf9027f2dd92b8a9fe
+     | North-South resolution min:. 0.0001
+     | North-South resolution max:. 0.0001
+     | East-west resolution min:... 0.0001
+     | East-west resolution max:... 0.0001
+     | Minimum value min:.......... 16.6
+     | Minimum value max:.......... 18.4
+     | Maximum value min:.......... 16.6
+     | Maximum value max:.......... 18.4
+     | Aggregation type:........... None
+     | Number of registered maps:.. 7
+     |
+     | Title:
+     | Dataset for offering temporary and observed property air_temperature
+     | Description:
+     | Raster space time dataset
+     | Command history:
+     | # 2017-08-29 11:52:06
+     | t.create output="workshop_temporary_air_temperature"
+     |     type="strds" description="Raster space time dataset"
+     |     title="Dataset for offering temporary and observed property air_temperature"
+     | # 2017-08-29 11:52:07
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T183000" type="raster"
+     |     start="2015-05-03 18:30"
+     | # 2017-08-29 11:52:07
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T184000" type="raster"
+     |     start="2015-05-03 18:40"
+     | # 2017-08-29 11:52:08
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T185000" type="raster"
+     |     start="2015-05-03 18:50"
+     | # 2017-08-29 11:52:09
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T190000" type="raster"
+     |     start="2015-05-03 19:00"
+     | # 2017-08-29 11:52:10
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T191000" type="raster"
+     |     start="2015-05-03 19:10"
+     | # 2017-08-29 11:52:11
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T192000" type="raster"
+     |     start="2015-05-03 19:20"
+     | # 2017-08-29 11:52:12
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T193000" type="raster"
+     |     start="2015-05-03 19:30"
+     |
+     +----------------------------------------------------------------------------+
+</pre></div>
+
+<h3>Usage with aggregations:</h3>
+
+<div class="code"><pre>
+    t.rast.in.sos url=http://localhost/istsos/demo? output=workshop \
+    offering=temporary procedure=BELLINZONA,LOCARNO \
+    observed_properties=air:temperature \
+    event_time='2015-05-03T18:28:01+01:00/2015-05-03T19:33:01+01:00' \
+    granularity='30 minutes' method='average'
+</pre></div>
+
+Output:
+<div class="code"><pre>
+    WARNING: You have not setted the bounding box. Bounding box will be
+             automatically based on procedure geometries for every map.
+    Creating raster maps for offering temporary, observed property air:temperature
+</pre></div>
+
+t.info:
+<div class="code"><pre>
+    > t.info type=strds input=workshop_temporary_air_temperature@user1
+     +-------------------- Space Time Raster Dataset -----------------------------+
+     |                                                                            |
+     +-------------------- Basic information -------------------------------------+
+     | Id: ........................ workshop_temporary_air_temperature@user1
+     | Name: ...................... workshop_temporary_air_temperature
+     | Mapset: .................... user1
+     | Creator: ................... ondrej
+     | Temporal type: ............. absolute
+     | Creation time: ............. 2017-08-29 12:00:54.920726
+     | Modification time:.......... 2017-08-29 12:00:57.555558
+     | Semantic type:.............. mean
+     +-------------------- Absolute time -----------------------------------------+
+     | Start time:................. 2015-05-03 18:28:00
+     | End time:................... 2015-05-03 19:28:00
+     | Granularity:................ 30 minutes
+     | Temporal type of maps:...... point
+     +-------------------- Spatial extent ----------------------------------------+
+     | North:...................... 46.20322
+     | South:...................... 46.15515
+     | East:.. .................... 9.01976
+     | West:....................... 8.79212
+     | Top:........................ 0.0
+     | Bottom:..................... 0.0
+     +-------------------- Metadata information ----------------------------------+
+     | Raster register table:...... raster_map_register_d0ecf6bde9db40f58aad88f687dce974
+     | North-South resolution min:. 0.0001
+     | North-South resolution max:. 0.0001
+     | East-west resolution min:... 0.0001
+     | East-west resolution max:... 0.0001
+     | Minimum value min:.......... 16.6
+     | Minimum value max:.......... 18.366667
+     | Maximum value min:.......... 16.6
+     | Maximum value max:.......... 18.366667
+     | Aggregation type:........... None
+     | Number of registered maps:.. 3
+     |
+     | Title:
+     | Dataset for offering temporary and observed property air_temperature
+     | Description:
+     | Raster space time dataset
+     | Command history:
+     | # 2017-08-29 12:00:54
+     | t.create output="workshop_temporary_air_temperature"
+     |     type="strds" description="Raster space time dataset"
+     |     title="Dataset for offering temporary and observed property air_temperature"
+     | # 2017-08-29 12:00:55
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T182801" type="raster"
+     |     start="2015-05-03 18:28"
+     | # 2017-08-29 12:00:56
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T185801" type="raster"
+     |     start="2015-05-03 18:58"
+     | # 2017-08-29 12:00:57
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature_t20150503T192801" type="raster"
+     |     start="2015-05-03 19:28"
+     |
+     +----------------------------------------------------------------------------+
+</pre></div>
+
+<h2>SEE ALSO</h2>
+
+<em>
+    <a href="r.in.sos.html">r.in.sos</a>
+    <a href="v.in.sos.html">v.in.sos</a>
+    <a href="t.vect.in.sos.html">t.vect.in.sos</a>
+    <a href="t.vect.to.rast.html">t.rast.to.vect</a>
+</em>
+
+<h2>AUTHORS</h2>
+
+Ondrej Pesek under the supervision of Luca Delucchi.

@@ -1,0 +1,242 @@
+<h2>DESCRIPTION</h2>
+
+<em>t.vect.in.sos</em> imports data from SOS server as spatio-temporal
+vector datasets to GRASS GIS. They are created with suffix
+<em>offering_observed_property</em> and with vector maps (where one layer means
+one timestamp) as intermediates.
+<p>
+User is also allowed to temporally aggregate the output by a specific temporal
+granularity. The temporal granularity can be <em>seconds</em>,
+<em>minutes</em>, <em>hours</em>, <em>days</em>, <em>weeks</em>,
+<em>months</em> or <em>years</em>. Mixing of granularities
+eg. <em>1 year, 3 months 5 days</em> is not supported.
+
+<h2>NOTES</h2>
+
+To use this module, you need your OWSLib up-to-date. If you don't have it,
+please install it from its
+<a href="https://github.com/geopython/OWSLib">github repository</a>.
+
+<h2>EXAMPLES</h2>
+
+<h3>Info about services:</h3>
+
+Get offerings:
+<div class="code"><pre>
+    > t.vect.in.sos url=http://localhost/istsos/demo? -o
+    SOS offerings:
+    temporary
+    workshop
+</pre></div>
+
+Get other parameters for both offerings:
+<div class="code"><pre>
+    > t.vect.in.sos url=http://localhost/istsos/demo? -o
+    Observed properties of temporary offering:
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:humidity:relative
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:rainfall
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:temperature
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:wind:velocity
+    urn:ogc:def:parameter:x-istsos:1.0:river:water:discharge
+    urn:ogc:def:parameter:x-istsos:1.0:river:water:height
+    Procedures of temporary offering:
+    arduino
+    BELLINZONA
+    LOCARNO
+    P_LUGANO
+    RH_GNOSCA
+    T_LUGANO
+    V_GNOSCA
+    V_LUGANO
+    Begin timestamp/end timestamp of temporary offering:
+    2015-05-03T16:30:00+02:00/2015-06-03T16:20:00+02:00
+    Observed properties of workshop offering:
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:humidity:relative
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:rainfall
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:temperature
+    urn:ogc:def:parameter:x-istsos:1.0:meteo:air:wind:velocity
+    Procedures of workshop offering:
+    BELLINZONA
+    V_LUGANO
+    Begin timestamp/end timestamp of workshop offering:
+    2015-05-03T16:30:00+02:00/2015-06-03T14:50:00+02:00
+</pre></div>
+
+<h3>Standard usage:</h3>
+
+<div class="code"><pre>
+    t.vect.in.sos url=http://localhost/istsos/demo? output=workshop \
+    offering=temporary procedure=BELLINZONA,LOCARNO \
+    observed_properties=air:temperature,air:rainfall \
+    event_time='2015-05-03T18:28:01+01:00/2015-05-03T19:33:01+01:00'
+</pre></div>
+
+Output:
+<div class="code"><pre>
+    Creating vector maps for air:rainfall...
+    Registering maps in the space time dataset...
+    Creating vector maps for air:temperature...
+    Registering maps in the space time dataset...
+</pre></div>
+
+t.list (see stvds suffix)
+<div class="code"><pre>
+    > t.list type=stvds
+     ----------------------------------------------
+     Space time vector datasets with absolute time available in mapset user1:
+     workshop_temporary_air_rainfall@user1
+     workshop_temporary_air_temperature@user1
+</pre></div>
+
+t.info
+<div class="code"><pre>
+    > t.info type=stvds input=workshop_temporary_air_temperature@user1
+     +-------------------- Space Time Vector Dataset -----------------------------+
+     |                                                                            |
+     +-------------------- Basic information -------------------------------------+
+     | Id: ........................ workshop_temporary_air_temperature@user1
+     | Name: ...................... workshop_temporary_air_temperature
+     | Mapset: .................... user1
+     | Creator: ................... ondrej
+     | Temporal type: ............. absolute
+     | Creation time: ............. 2017-08-29 11:26:42.825175
+     | Modification time:.......... 2017-08-29 11:26:51.524992
+     | Semantic type:.............. mean
+     +-------------------- Absolute time -----------------------------------------+
+     | Start time:................. 2015-05-03 18:30:00
+     | End time:................... 2015-05-03 19:30:00
+     | Granularity:................ 10 minutes
+     | Temporal type of maps:...... point
+     +-------------------- Spatial extent ----------------------------------------+
+     | North:...................... 46.20322
+     | South:...................... 46.15515
+     | East:.. .................... 9.01976
+     | West:....................... 8.79212
+     | Top:........................ 0.0
+     | Bottom:..................... 0.0
+     +-------------------- Metadata information ----------------------------------+
+     | Vector register table:...... vector_map_register_b7ba6e2cdfe141f6b2086a59fec18a02
+     | Number of points ........... 14
+     | Number of lines ............ 0
+     | Number of boundaries ....... 0
+     | Number of centroids ........ 0
+     | Number of faces ............ 0
+     | Number of kernels .......... 0
+     | Number of primitives ....... 14
+     | Number of nodes ............ 0
+     | Number of areas ............ 0
+     | Number of islands .......... 0
+     | Number of holes ............ 0
+     | Number of volumes .......... 0
+     | Number of registered maps:.. 7
+     |
+     | Title:
+     | Dataset for offering temporary and observed property air:temperature
+     | Description:
+     | Vector space time dataset
+     | Command history:
+     | # 2017-08-29 11:26:42
+     | t.create output="workshop_temporary_air_temperature"
+     |     type="stvds" description="Vector space time dataset"
+     |     title="Dataset for offering temporary and observed property air:temperature"
+     | # 2017-08-29 11:26:46
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature:1" type="vector"
+     |     start="2015-05-03 18:30"
+     | # 2017-08-29 11:26:47
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature:2" type="vector"
+     |     start="2015-05-03 18:40"
+     | # 2017-08-29 11:26:47
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature:3" type="vector"
+     |     start="2015-05-03 18:50"
+     | # 2017-08-29 11:26:48
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature:4" type="vector"
+     |     start="2015-05-03 19:00"
+     | # 2017-08-29 11:26:49
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature:5" type="vector"
+     |     start="2015-05-03 19:10"
+     | # 2017-08-29 11:26:50
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature:6" type="vector"
+     |     start="2015-05-03 19:20"
+     | # 2017-08-29 11:26:51
+     | t.register --q
+     |     input="workshop_temporary_air_temperature"
+     |     maps="workshop_temporary_air_temperature:7" type="vector"
+     |     start="2015-05-03 19:30"
+     |
+     +----------------------------------------------------------------------------+
+</pre></div>
+
+t.vect.db.select
+<div class="code"><pre>
+    > t.vect.db.select input=workshop_temporary_air_temperature@user1
+     start_time|end_time|cat|name|value
+     2015-05-03 18:30:00||1|BELLINZONA|19.1
+     2015-05-03 18:30:00||2|LOCARNO|18.3
+     2015-05-03 18:40:00||1|BELLINZONA|18.5
+     2015-05-03 18:40:00||2|LOCARNO|18.4
+     2015-05-03 18:50:00||1|BELLINZONA|18.1
+     2015-05-03 18:50:00||2|LOCARNO|18.4
+     2015-05-03 19:00:00||1|BELLINZONA|17.7
+     2015-05-03 19:00:00||2|LOCARNO|17.3
+     2015-05-03 19:10:00||1|BELLINZONA|17.4
+     2015-05-03 19:10:00||2|LOCARNO|17.8
+     2015-05-03 19:20:00||1|BELLINZONA|17.3
+     2015-05-03 19:20:00||2|LOCARNO|17.4
+     2015-05-03 19:30:00||1|BELLINZONA|16.9
+     2015-05-03 19:30:00||2|LOCARNO|16.6
+</pre></div>
+
+<h3>Usage with aggregations:</h3>
+
+<div class="code"><pre>
+    t.vect.in.sos url=http://localhost/istsos/demo? output=workshop \
+    offering=temporary procedure=BELLINZONA,LOCARNO \
+    observed_properties=air:temperature \
+    event_time='2015-05-03T18:28:01+01:00/2015-05-03T19:33:01+01:00' \
+    granularity='30 minutes' method='average'
+</pre></div>
+
+Output:
+<div class="code"><pre>
+    Creating vector maps for air:rainfall...
+    Registering maps in the space time dataset...
+    Creating vector maps for air:temperature...
+    Registering maps in the space time dataset...
+</pre></div>
+
+t.vect.db.select:
+<div class="code"><pre>
+    > t.vect.db.select input=workshop_temporary_air_temperature@user1
+     start_time|end_time|cat|name|value
+     2015-05-03 18:28:00||1|BELLINZONA|18.5666666666667
+     2015-05-03 18:28:00||2|LOCARNO|18.3666666666667
+     2015-05-03 18:58:00||1|BELLINZONA|17.4666666666667
+     2015-05-03 18:58:00||2|LOCARNO|17.5
+     2015-05-03 19:28:00||1|BELLINZONA|16.9
+     2015-05-03 19:28:00||2|LOCARNO|16.6
+</pre></div>
+
+<h2>SEE ALSO</h2>
+
+<em>
+    <a href="r.in.sos.html">r.in.sos</a>
+    <a href="v.in.sos.html">v.in.sos</a>
+    <a href="t.vect.in.sos.html">t.rast.in.sos</a>
+    <a href="t.vect.to.rast.html">t.vect.to.rast</a>
+</em>
+
+<h2>AUTHORS</h2>
+
+Ondrej Pesek under the supervision of Luca Delucchi. 
