@@ -238,12 +238,13 @@ def main():
                                  'parameter, observed properties, '
                                  'procedures or offerings')
 
-        create_maps(parsed_obs, off, layerscount, new, secondsGranularity)
+        create_maps(parsed_obs, off, layerscount, new,
+                    secondsGranularity, event_time)
         layerscount += len(parsed_obs)
     return 0
 
 
-def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
+def create_maps(parsed_obs, offering, layer, new, secondsGranularity, event_time):
     """
     Add layers representing offerings and observed properties to the vector map
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -265,12 +266,14 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
             new.open('w')
 
         off_idx = service.offerings.index(offering)
+        outputFormat = service.get_operation_by_name('DescribeSensor').parameters['outputFormat']['values'][0]
         procedures = service.offerings[off_idx].procedures
         for proc in procedures:
             response = service.describe_sensor(procedure=procs,
                                                outputFormat=outputFormat)
-            tree = etree.ElementTree(etree.fromstring(response))
-            root = tree.getroot()
+            #tree = etree.ElementTree(etree.fromstring(response))
+            root = SensorML(response)
+            system = root.members[0]
             if name not in points.keys():
                 points.update({name: freeCat})
                 new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
@@ -279,9 +282,9 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
 
     else:
         timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
-        startTime = options['event_time'].split('+')[0]
+        startTime = event_time.split('+')[0]
         epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
-        endTime = options['event_time'].split('+')[1].split('/')[1]
+        endTime = event_time.split('+')[1].split('/')[1]
         epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
         for key, observation in parsed_obs.iteritems():
