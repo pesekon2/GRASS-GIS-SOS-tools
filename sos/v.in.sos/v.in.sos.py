@@ -67,6 +67,14 @@
 #% guisection: Request
 #%end
 #%option
+#% key: timeout
+#% type: integer
+#% description: Timeout for SOS request
+#% required: no
+#% answer: 30
+#% guisection: Request
+#%end
+#%option
 #% key: response_format
 #% type: string
 #% options: text/xml;subtype="om/1.0.0", application/json
@@ -211,14 +219,19 @@ def main():
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
 
-        obs = service.get_observation(
-            offerings=[off],
-            responseFormat=options['response_format'],
-            observedProperties=observed_properties,
-            procedure=procedure,
-            eventTime=event_time,
-            username=options['username'],
-            password=options['password'])
+        try:
+            obs = service.get_observation(
+                offerings=[off],
+                responseFormat=options['response_format'],
+                observedProperties=observed_properties,
+                procedure=procedure,
+                eventTime=event_time,
+                timeout=int(options['timeout']),
+                username=options['username'],
+                password=options['password'])
+        except:
+            # Todo: catch errors properly (e.g. timeout)
+            grass.fatal('Request did not succeed!')
 
         try:
             if options['version'] in ['1.0.0', '1.0'] and str(
