@@ -200,18 +200,11 @@ def handle_not_given_options(service, offering=None, procedure=None,
     :param eventTime: Timestamp of first,last requested observation
     """
     if procedure == '':
-        procedure = []
-        for p in service[offering].procedures:
-            procedure.append(unicode(p.split(':')[-1]))
-        procedure = u','.join(procedure)
+        procedure = None
     else:
         procedure = procedure
 
     if observedProperties == '':
-        # observed_properties = ''
-        # for observed_property in service[offering].observed_properties:
-        #    observed_properties += '{},'.format(observed_property)
-        #observed_properties = observed_properties[:-1]
         observed_properties = service[offering].observed_properties
     else:
         observed_properties = observedProperties.split(',')
