@@ -152,11 +152,13 @@
 
 
 import sys
+import os
 import json
 from sqlite3 import OperationalError
 import time, datetime
 try:
     from owslib.sos import SensorObservationService
+    from owslib.swe.sensor.sml import SensorML
     from grass.script import parser, run_command
     from grass.script import core as grass
     from grass.pygrass.vector import VectorTopo
@@ -219,45 +221,49 @@ def main():
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
 
-        try:
-            obs = service.get_observation(
-                offerings=[off],
-                responseFormat=options['response_format'],
-                observedProperties=observed_properties,
-                procedure=procedure,
-                eventTime=event_time,
-                timeout=int(options['timeout']),
-                username=options['username'],
-                password=options['password'])
-        except:
-            # Todo: catch errors properly (e.g. timeout)
-            grass.fatal('Request did not succeed!')
+        if flags['s']:
+            create_maps(parsed_obs, off, layerscount, new,
+                        secondsGranularity, event_time, service)
+        else:
+            try:
+                obs = service.get_observation(
+                    offerings=[off],
+                    responseFormat=options['response_format'],
+                    observedProperties=observed_properties,
+                    procedure=procedure,
+                    eventTime=event_time,
+                    timeout=int(options['timeout']),
+                    username=options['username'],
+                    password=options['password'])
+            except:
+                # Todo: catch errors properly (e.g. timeout)
+                grass.fatal('Request did not succeed!')
 
-        try:
-            if options['version'] in ['1.0.0', '1.0'] and str(
-              options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-                for prop in observed_properties:
-                    parsed_obs.update({prop: xml2geojson(obs, prop)})
-            elif str(options['response_format']) == 'application/json':
-                for prop in observed_properties:
-                    parsed_obs.update({prop: json2geojson(obs, prop)})
-        except AttributeError:
-            if sys.version >= (3, 0):
-                sys.tracebacklimit = None
-            else:
-                sys.tracebacklimit = 0
-            raise AttributeError('There is no data for at least one of your '
-                                 'procedures, could  you change the time '
-                                 'parameter, observed properties, '
-                                 'procedures or offerings')
+            try:
+                if options['version'] in ['1.0.0', '1.0'] and str(
+                  options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+                    for prop in observed_properties:
+                        parsed_obs.update({prop: xml2geojson(obs, prop)})
+                elif str(options['response_format']) == 'application/json':
+                    for prop in observed_properties:
+                        parsed_obs.update({prop: json2geojson(obs, prop)})
+            except AttributeError:
+                if sys.version >= (3, 0):
+                    sys.tracebacklimit = None
+                else:
+                    sys.tracebacklimit = 0
+                raise AttributeError('There is no data for at least one of your '
+                                     'procedures, could  you change the time '
+                                     'parameter, observed properties, '
+                                     'procedures or offerings')
 
-        create_maps(parsed_obs, off, layerscount, new,
-                    secondsGranularity, event_time)
-        layerscount += len(parsed_obs)
-    return 0
+            create_maps(parsed_obs, off, layerscount, new,
+                        secondsGranularity, event_time, service)
+            layerscount += len(parsed_obs)
+        return 0
 
 
-def create_maps(parsed_obs, offering, layer, new, secondsGranularity, event_time):
+def create_maps(parsed_obs, offering, layer, new, secondsGranularity, event_time, service):
     """
     Add layers representing offerings and observed properties to the vector map
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -272,26 +278,71 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity, event_time
     freeCat = 1
 
     if flags['s']:
-        pass
-        """
-        The following is work in progress
-        if new.is_open() is False:
-            new.open('w')
+        # Set target projection of current LOCATION
+        target_crs = grass.read_command('g.proj', flags='fj').rstrip(os.linesep)
+        target = osr.SpatialReference(target_crs)
+        target.ImportFromProj4(target_crs)
+        if target == 'XY location (unprojected)':
+            grass.fatal("Sorry, XY locations are not supported!")
 
-        off_idx = service.offerings.index(offering)
+       # The following is work in progress
+        cols = [(u'cat', 'INTEGER PRIMARY KEY'),
+                (u'name', 'varchar'),
+                (u'description', 'varchar'),
+                (u'keywords', 'varchar'),
+                (u'sensor_type', 'varchar'),
+                (u'system_type', 'varchar'),
+                (u'crs', 'INTEGER'),
+                (u'x', 'DOUBLE'),
+                (u'y', 'DOUBLE'),
+                (u'z', 'DOUBLE')]
+        # new = Vector(new)
+        if new.is_open() is False:
+            new.open('w', tab_name=options['output'], tab_cols=cols)
+        offs = [o.id for o in service.offerings]
+        off_idx = offs.index(offering)
         outputFormat = service.get_operation_by_name('DescribeSensor').parameters['outputFormat']['values'][0]
         procedures = service.offerings[off_idx].procedures
         for proc in procedures:
-            response = service.describe_sensor(procedure=procs,
+            response = service.describe_sensor(procedure=proc,
                                                outputFormat=outputFormat)
-            #tree = etree.ElementTree(etree.fromstring(response))
             root = SensorML(response)
             system = root.members[0]
+            name = system.name
+            desc = system.description
+            keywords = ','.join(system.keywords)
+            sensType = system.classifiers['Sensor Type'].value
+            sysType = system.classifiers['System Type'].value
+            crs = int(system.location[0].attrib['srsName'].split(':')[1])
+            coords = system.location[0][0].text.replace('\n','')
+            sx = float(coords.split(',')[0])
+            sy = float(coords.split(',')[1])
+            sz = float(coords.split(',')[2])
+            # Set source projection from SOS
+            source = osr.SpatialReference()
+            source.ImportFromEPSG(crs)
+            transform = osr.CoordinateTransformation(source, target)
+            point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx, sy, sz))
+            point.Transform(transform)
+            x = point.GetX()
+            y = point.GetY()
+            z = point.GetZ()
             if name not in points.keys():
                 points.update({name: freeCat})
-                new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
+                point = Point(x, y, z)
+                new.write(point, cat=freeCat, attrs=(
+                          u'{}'.format(system.name.decode('utf-8')),
+                          system.description,
+                          ','.join(system.keywords),
+                          system.classifiers['Sensor Type'].value,
+                          system.classifiers['System Type'].value,
+                          crs,
+                          float(coords.split(',')[0]),
+                          float(coords.split(',')[1]),
+                          float(coords.split(',')[2]),))
                 freeCat += 1
-           """ 
+        new.table.conn.commit()
+        new.close(build=True)
 
     else:
         timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
