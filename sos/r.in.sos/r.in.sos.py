@@ -240,17 +240,17 @@ def main():
 
         obs = service.get_observation(
             offerings=[off], responseFormat=options['response_format'],
-            observedProperties=[observed_properties], procedure=procedure,
+            observedProperties=observed_properties, procedure=procedure,
             eventTime=event_time, username=options['username'],
             password=options['password'])
 
         try:
             if options['version'] in ['1.0.0', '1.0'] and \
               str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-                for prop in observed_properties.split(','):
+                for prop in observed_properties:
                     parsed_obs.update({prop: xml2geojson(obs, prop)})
             elif str(options['response_format']) == 'application/json':
-                for prop in observed_properties.split(','):
+                for prop in observed_properties:
                     parsed_obs.update({prop: json2geojson(obs, prop)})
         except AttributeError:
             if sys.version >= (3, 0):

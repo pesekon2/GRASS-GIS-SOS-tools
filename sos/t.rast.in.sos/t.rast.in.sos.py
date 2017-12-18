@@ -209,7 +209,7 @@ def main():
         procedure, observed_properties, event_time = handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
-        for observedProperty in observed_properties.split(','):
+        for observedProperty in observed_properties:
             mapName = '{}_{}_{}'.format(options['output'], off,
                                         observedProperty)
             if ':' in mapName:
