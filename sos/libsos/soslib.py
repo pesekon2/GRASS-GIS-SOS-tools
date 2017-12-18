@@ -205,12 +205,9 @@ def handle_not_given_options(service, offering=None, procedure=None,
         procedure = procedure
 
     if observedProperties == '':
-        observed_properties = ''
-        for observed_property in service[offering].observed_properties:
-            observed_properties += '{},'.format(observed_property)
-        observed_properties = observed_properties[:-1]
+        observed_properties = service[offering].observed_properties
     else:
-        observed_properties = observedProperties
+        observed_properties = observedProperties.split(',')
 
     if eventTime == '':
         beginTimestamp = str(service[offering].begin_position)

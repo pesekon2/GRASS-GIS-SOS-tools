@@ -20,29 +20,33 @@
 #% keyword: SOS
 #%end
 #%flag
+#% key: s
+#% description: Skip import of observation, import only procedure info
+#%end
+#%flag
 #% key: v
 #% description: Print observed properties for given url and offering
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%flag
 #% key: o
 #% description: Print offerings for given url
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%flag
 #% key: p
 #% description: Print procedures for given url and offering
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%flag
 #% key: t
 #% description: Print begin and end timestamps for given url and offering
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%flag
 #% key: g
 #% description: Print informations in shell script style
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%option
 #% key: url
@@ -60,6 +64,14 @@
 #% description: A collection of sensor used to conveniently group them up
 #% required: no
 #% multiple: yes
+#% guisection: Request
+#%end
+#%option
+#% key: timeout
+#% type: integer
+#% description: Timeout for SOS request
+#% required: no
+#% answer: 30
 #% guisection: Request
 #%end
 #%option
@@ -140,11 +152,13 @@
 
 
 import sys
+import os
 import json
 from sqlite3 import OperationalError
 import time, datetime
 try:
     from owslib.sos import SensorObservationService
+    from owslib.swe.sensor.sml import SensorML
     from grass.script import parser, run_command
     from grass.script import core as grass
     from grass.pygrass.vector import VectorTopo
@@ -206,41 +220,50 @@ def main():
         procedure, observed_properties, event_time = handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
-        event_time = 'T'.join(event_time.split(' '))
 
-        obs = service.get_observation(
-            offerings=[off],
-            responseFormat=options['response_format'],
-            observedProperties=[observed_properties],
-            procedure=procedure,
-            eventTime=event_time,
-            username=options['username'],
-            password=options['password'])
+        if flags['s']:
+            create_maps(parsed_obs, off, layerscount, new,
+                        secondsGranularity, event_time, service)
+        else:
+            try:
+                obs = service.get_observation(
+                    offerings=[off],
+                    responseFormat=options['response_format'],
+                    observedProperties=observed_properties,
+                    procedure=procedure,
+                    eventTime=event_time,
+                    timeout=int(options['timeout']),
+                    username=options['username'],
+                    password=options['password'])
+            except:
+                # Todo: catch errors properly (e.g. timeout)
+                grass.fatal('Request did not succeed!')
 
-        try:
-            if options['version'] in ['1.0.0', '1.0'] and str(
-              options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-                for property in observed_properties.split(','):
-                    parsed_obs.update({property: xml2geojson(obs, property)})
-            elif str(options['response_format']) == 'application/json':
-                for property in observed_properties.split(','):
-                    parsed_obs.update({property: json2geojson(obs, property)})
-        except AttributeError:
-            if sys.version >= (3, 0):
-                sys.tracebacklimit = None
-            else:
-                sys.tracebacklimit = 0
-            raise AttributeError('There is no data for at least one of your '
-                                 'procedures, could  you change the time '
-                                 'parameter, observed properties, '
-                                 'procedures or offerings')
+            try:
+                if options['version'] in ['1.0.0', '1.0'] and str(
+                  options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+                    for prop in observed_properties:
+                        parsed_obs.update({prop: xml2geojson(obs, prop)})
+                elif str(options['response_format']) == 'application/json':
+                    for prop in observed_properties:
+                        parsed_obs.update({prop: json2geojson(obs, prop)})
+            except AttributeError:
+                if sys.version >= (3, 0):
+                    sys.tracebacklimit = None
+                else:
+                    sys.tracebacklimit = 0
+                raise AttributeError('There is no data for at least one of your '
+                                     'procedures, could  you change the time '
+                                     'parameter, observed properties, '
+                                     'procedures or offerings')
 
-        create_maps(parsed_obs, off, layerscount, new, secondsGranularity)
-        layerscount += len(parsed_obs)
-    return 0
+            create_maps(parsed_obs, off, layerscount, new,
+                        secondsGranularity, event_time, service)
+            layerscount += len(parsed_obs)
+        return 0
 
 
-def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
+def create_maps(parsed_obs, offering, layer, new, secondsGranularity, event_time, service):
     """
     Add layers representing offerings and observed properties to the vector map
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -254,111 +277,179 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity):
     points = dict()
     freeCat = 1
 
-    timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
-    startTime = options['event_time'].split('+')[0]
-    epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
-    endTime = options['event_time'].split('+')[1].split('/')[1]
-    epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
+    if flags['s']:
+        # Set target projection of current LOCATION
+        target_crs = grass.read_command('g.proj', flags='fj').rstrip(os.linesep)
+        target = osr.SpatialReference(target_crs)
+        target.ImportFromProj4(target_crs)
+        if target == 'XY location (unprojected)':
+            grass.fatal("Sorry, XY locations are not supported!")
 
-    for key, observation in parsed_obs.iteritems():
-
-        tableName = '{}_{}_{}'.format(options['output'], offering, key)
-        if ':' in tableName:
-            tableName = '_'.join(tableName.split(':'))
-        if '-' in tableName:
-            tableName = '_'.join(tableName.split('-'))
-        if '.' in tableName:
-            tableName = '_'.join(tableName.split('.'))
-
-        data = json.loads(observation)
-
-        intervals = {}
-        for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
-            intervals.update({secondsStamp: dict()})
-
-        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
-
-        cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
-        for a in data['features']:
-            name = a['properties']['name']
-
+       # The following is work in progress
+        cols = [(u'cat', 'INTEGER PRIMARY KEY'),
+                (u'name', 'varchar'),
+                (u'description', 'varchar'),
+                (u'keywords', 'varchar'),
+                (u'sensor_type', 'varchar'),
+                (u'system_type', 'varchar'),
+                (u'crs', 'INTEGER'),
+                (u'x', 'DOUBLE'),
+                (u'y', 'DOUBLE'),
+                (u'z', 'DOUBLE')]
+        # new = Vector(new)
+        if new.is_open() is False:
+            new.open('w', tab_name=options['output'], tab_cols=cols)
+        offs = [o.id for o in service.offerings]
+        off_idx = offs.index(offering)
+        outputFormat = service.get_operation_by_name('DescribeSensor').parameters['outputFormat']['values'][0]
+        procedures = service.offerings[off_idx].procedures
+        for proc in procedures:
+            response = service.describe_sensor(procedure=proc,
+                                               outputFormat=outputFormat)
+            root = SensorML(response)
+            system = root.members[0]
+            name = system.name
+            desc = system.description
+            keywords = ','.join(system.keywords)
+            sensType = system.classifiers['Sensor Type'].value
+            sysType = system.classifiers['System Type'].value
+            crs = int(system.location[0].attrib['srsName'].split(':')[1])
+            coords = system.location[0][0].text.replace('\n','')
+            sx = float(coords.split(',')[0])
+            sy = float(coords.split(',')[1])
+            sz = float(coords.split(',')[2])
+            # Set source projection from SOS
+            source = osr.SpatialReference()
+            source.ImportFromEPSG(crs)
+            transform = osr.CoordinateTransformation(source, target)
+            point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx, sy, sz))
+            point.Transform(transform)
+            x = point.GetX()
+            y = point.GetY()
+            z = point.GetZ()
             if name not in points.keys():
-                if new.is_open() is False:
-                    new.open('w')
                 points.update({name: freeCat})
-                new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
+                point = Point(x, y, z)
+                new.write(point, cat=freeCat, attrs=(
+                          u'{}'.format(system.name.decode('utf-8')),
+                          system.description,
+                          ','.join(system.keywords),
+                          system.classifiers['Sensor Type'].value,
+                          system.classifiers['System Type'].value,
+                          crs,
+                          float(coords.split(',')[0]),
+                          float(coords.split(',')[1]),
+                          float(coords.split(',')[2]),))
                 freeCat += 1
+        new.table.conn.commit()
+        new.close(build=True)
 
-            for timestamp, value in a['properties'].iteritems():
-                if timestamp != 'name':
-                    observationStartTime = timestamp[:-4]
-                    secondsTimestamp = int(time.mktime(
-                        time.strptime(observationStartTime, timestampPattern)))
-                    for interval in intervals.keys():
-                        if secondsTimestamp >= interval \
-                                and secondsTimestamp < (
-                                            interval + secondsGranularity):
-                            if name in intervals[interval].keys():
-                                intervals[interval][name].append(float(value))
-                            else:
-                                timestamp2 = datetime.datetime.fromtimestamp(
-                                    interval).strftime('t%Y%m%dT%H%M%S')
-                                intervals[interval].update(
-                                    {name: [float(value)]})
-                                if (u'%s' % timestamp2, 'DOUBLE') not in cols:
-                                    cols.append((u'%s' % timestamp2, 'DOUBLE'))
-                            break
+    else:
+        timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
+        startTime = event_time.split('+')[0]
+        epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
+        endTime = event_time.split('+')[1].split('/')[1]
+        epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
-        if len(cols) > 2000:
-            grass.warning(
-                'Recommended number of columns is less than 2000, you have '
-                'reached {}\nYou should set an event_time with a smaller range'
-                ' or recompile SQLite limits as described at '
-                'https://sqlite.org/limits.html'.format(len(cols)))
+        for key, observation in parsed_obs.iteritems():
 
-        link = Link(
-            layer=i, name=tableName, table=tableName, key='cat',
-            database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
-            driver='sqlite')
+            tableName = '{}_{}_{}'.format(options['output'], offering, key)
+            if ':' in tableName:
+                tableName = '_'.join(tableName.split(':'))
+            if '-' in tableName:
+                tableName = '_'.join(tableName.split('-'))
+            if '.' in tableName:
+                tableName = '_'.join(tableName.split('.'))
 
-        if new.is_open():
-            new.close()
+            data = json.loads(observation)
 
-        new.open('rw')
-        new.dblinks.add(link)
-        new.table = new.dblinks[i - 1].table()
-        new.table.create(cols)
-        inserts = dict()
-        for interval in intervals.keys():
-            if len(intervals[interval]) != 0:
-                timestamp = datetime.datetime.fromtimestamp(
-                    interval).strftime('t%Y%m%dT%H%M%S')
+            intervals = {}
+            for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
+                intervals.update({secondsStamp: dict()})
 
-                for name, values in intervals[interval].iteritems():
-                    if options['method'] == 'average':
-                        aggregatedValue = sum(values) / len(values)
-                    elif options['method'] == 'sum':
-                        aggregatedValue = sum(values)
+            timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
 
-                    if name not in inserts.keys():
-                        insert = [None] * len(cols)
-                        insert[0] = points[name]
-                        insert[1] = name
-                        insert[cols.index((timestamp,
-                                           'DOUBLE'))] = aggregatedValue
-                        inserts.update({name: insert})
-                    else:
-                        inserts[name][cols.index((timestamp,
-                                                  'DOUBLE'))] = aggregatedValue
+            cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
+            for a in data['features']:
+                name = a['properties']['name']
 
-        for insert in inserts.values():
-            new.table.insert(tuple(insert))
-            new.table.conn.commit()
+                if name not in points.keys():
+                    if new.is_open() is False:
+                        new.open('w')
+                    points.update({name: freeCat})
+                    new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
+                    freeCat += 1
 
-        new.close(build=False)
-        run_command('v.build', quiet=True, map=options['output'])
+                for timestamp, value in a['properties'].iteritems():
+                    if timestamp != 'name':
+                        observationStartTime = timestamp[:-4]
+                        secondsTimestamp = int(time.mktime(
+                            time.strptime(observationStartTime, timestampPattern)))
+                        for interval in intervals.keys():
+                            if secondsTimestamp >= interval \
+                                    and secondsTimestamp < (
+                                                interval + secondsGranularity):
+                                if name in intervals[interval].keys():
+                                    intervals[interval][name].append(float(value))
+                                else:
+                                    timestamp2 = datetime.datetime.fromtimestamp(
+                                        interval).strftime('t%Y%m%dT%H%M%S')
+                                    intervals[interval].update(
+                                        {name: [float(value)]})
+                                    if (u'%s' % timestamp2, 'DOUBLE') not in cols:
+                                        cols.append((u'%s' % timestamp2, 'DOUBLE'))
+                                break
 
-        i += 1
+            if len(cols) > 2000:
+                grass.warning(
+                    'Recommended number of columns is less than 2000, you have '
+                    'reached {}\nYou should set an event_time with a smaller range'
+                    ' or recompile SQLite limits as described at '
+                    'https://sqlite.org/limits.html'.format(len(cols)))
+
+            link = Link(
+                layer=i, name=tableName, table=tableName, key='cat',
+                database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
+                driver='sqlite')
+
+            if new.is_open():
+                new.close()
+
+            new.open('rw')
+            new.dblinks.add(link)
+            new.table = new.dblinks[i - 1].table()
+            new.table.create(cols)
+            inserts = dict()
+            for interval in intervals.keys():
+                if len(intervals[interval]) != 0:
+                    timestamp = datetime.datetime.fromtimestamp(
+                        interval).strftime('t%Y%m%dT%H%M%S')
+
+                    for name, values in intervals[interval].iteritems():
+                        if options['method'] == 'average':
+                            aggregatedValue = sum(values) / len(values)
+                        elif options['method'] == 'sum':
+                            aggregatedValue = sum(values)
+
+                        if name not in inserts.keys():
+                            insert = [None] * len(cols)
+                            insert[0] = points[name]
+                            insert[1] = name
+                            insert[cols.index((timestamp,
+                                               'DOUBLE'))] = aggregatedValue
+                            inserts.update({name: insert})
+                        else:
+                            inserts[name][cols.index((timestamp,
+                                                      'DOUBLE'))] = aggregatedValue
+
+            for insert in inserts.values():
+                new.table.insert(tuple(insert))
+                new.table.conn.commit()
+
+            new.close(build=False)
+            run_command('v.build', quiet=True, map=options['output'])
+
+            i += 1
 
 
 if __name__ == "__main__":
