@@ -222,7 +222,7 @@ def main():
             options['event_time'])
 
         if flags['s']:
-            create_maps(_, off, _, new, _, _, service)
+            create_maps(_, off, _, new, _, _, service, procedure)
         else:
             try:
                 obs = service.get_observation(
@@ -263,7 +263,7 @@ def main():
 
 
 def create_maps(parsed_obs, offering, layer, new, secondsGranularity,
-                event_time, service):
+                event_time, service, procedures=None):
     """
     Add layers representing offerings and observed properties to the vector map
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -276,13 +276,13 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity,
     """
 
     if flags['s']:
-        maps_without_observations(offering, new, service)
+        maps_without_observations(offering, new, service, procedures)
     else:
         full_maps(parsed_obs, offering, layer, new, secondsGranularity,
                   event_time)
 
 
-def maps_without_observations(offering, new, service):
+def maps_without_observations(offering, new, service, procedures):
     points = dict()
     freeCat = 1
     # Set target projection of current LOCATION
@@ -309,7 +309,12 @@ def maps_without_observations(offering, new, service):
     offs = [o.id for o in service.offerings]
     off_idx = offs.index(offering)
     outputFormat = service.get_operation_by_name('DescribeSensor').parameters['outputFormat']['values'][0]
-    procedures = service.offerings[off_idx].procedures
+
+    if procedures:
+        procedures = procedures.split(',')
+    else:
+        procedures = service.offerings[off_idx].procedures
+
     for proc in procedures:
         response = service.describe_sensor(procedure=proc,
                                            outputFormat=outputFormat)
