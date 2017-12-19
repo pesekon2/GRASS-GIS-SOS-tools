@@ -262,12 +262,12 @@ def main():
                                  'parameter, observed properties, '
                                  'procedures or offerings')
 
-        create_maps(parsed_obs, off, secondsGranularity, resolution)
+        create_maps(parsed_obs, off, secondsGranularity, resolution, event_time)
 
     return 0
 
 
-def create_maps(parsed_obs, offering, secondsGranularity, resolution):
+def create_maps(parsed_obs, offering, secondsGranularity, resolution, event_time):
     """
     Create raster maps representing offerings, observed props and procedures
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -277,9 +277,9 @@ def create_maps(parsed_obs, offering, secondsGranularity, resolution):
     """
 
     timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
-    startTime = options['event_time'].split('+')[0]
+    startTime = event_time.split('+')[0]
     epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
-    endTime = options['event_time'].split('+')[1].split('/')[1]
+    endTime = event_time.split('+')[1].split('/')[1]
     epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
     for key, observation in parsed_obs.iteritems():
