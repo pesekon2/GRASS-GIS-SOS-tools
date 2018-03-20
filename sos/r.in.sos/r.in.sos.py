@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!  /usr/bin/env python
 #
 ############################################################################
 #
@@ -166,8 +166,10 @@ import sys
 from sqlite3 import OperationalError
 import json
 import time, datetime
+import os
 try:
     from owslib.sos import SensorObservationService
+    from owslib.swe.sensor.sml import SensorML
     from grass.script import parser, run_command, overwrite
     from grass.script import core as grass
     from grass.pygrass.vector import VectorTopo
@@ -234,43 +236,140 @@ def main():
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
 
-        try:
-            obs = service.get_observation(
-                offerings=[off],
-                responseFormat=options['response_format'],
-                observedProperties=observed_properties,
-                procedure=procedure,
-                eventTime=event_time,
-                username=options['username'],
-                password=options['password'])
-        except:
-            # TODO: catch errors properly (e.g. timeout)
-            grass.fatal('Request did not succeed!')
+        if flags['s']:
+            create_maps(_, off, _, resolution, _, service, procedure)
+        else:
+            try:
+                obs = service.get_observation(
+                    offerings=[off],
+                    responseFormat=options['response_format'],
+                    observedProperties=observed_properties,
+                    procedure=procedure,
+                    eventTime=event_time,
+                    username=options['username'],
+                    password=options['password'])
+            except:
+                # TODO: catch errors properly (e.g. timeout)
+                grass.fatal('Request did not succeed!')
 
-        try:
-            if options['version'] in ['1.0.0', '1.0'] and \
-              str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
-                for prop in observed_properties:
-                    parsed_obs.update({prop: xml2geojson(obs, prop)})
-            elif str(options['response_format']) == 'application/json':
-                for prop in observed_properties:
-                    parsed_obs.update({prop: json2geojson(obs, prop)})
-        except AttributeError:
-            if sys.version >= (3, 0):
-                sys.tracebacklimit = None
-            else:
-                sys.tracebacklimit = 0
-            raise AttributeError('There is no data for at least one of your '
-                                 'procedures, could  you change the time '
-                                 'parameter, observed properties, '
-                                 'procedures or offerings')
+            try:
+                if options['version'] in ['1.0.0', '1.0'] and \
+                  str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+                    for prop in observed_properties:
+                        parsed_obs.update({prop: xml2geojson(obs, prop)})
+                elif str(options['response_format']) == 'application/json':
+                    for prop in observed_properties:
+                        parsed_obs.update({prop: json2geojson(obs, prop)})
+            except AttributeError:
+                if sys.version >= (3, 0):
+                    sys.tracebacklimit = None
+                else:
+                    sys.tracebacklimit = 0
+                raise AttributeError('There is no data for at least one of your '
+                                     'procedures, could  you change the time '
+                                     'parameter, observed properties, '
+                                     'procedures or offerings')
 
-        create_maps(parsed_obs, off, secondsGranularity, resolution, event_time)
+            create_maps(parsed_obs, off, secondsGranularity, resolution,
+                        event_time, _)
 
     return 0
 
 
-def create_maps(parsed_obs, offering, secondsGranularity, resolution, event_time):
+def create_maps(parsed_obs, offering, secondsGranularity, resolution,
+                event_time, service, procedures=None):
+    """
+    Create raster maps representing offerings, observed props and procedures
+    :param parsed_obs: Observations for a given offering in geoJSON format
+    :param offering: A collection of sensors used to conveniently group them up
+    :param secondsGranularity: Granularity in seconds
+    :param resolution: 2D grid resolution for rasterization
+    :param event_time: Timestamp of first/timestamp of last requested observation
+    :param service: SensorObservationService() type object of request
+    """
+
+    if flags['s']:
+        maps_without_observations(offering, resolution, service, procedures)
+    else:
+        full_maps(parsed_obs, offering, secondsGranularity,
+                  resolution, event_time)
+
+
+def maps_without_observations(offering, resolution, service, procedures):
+    """
+    :param offering: A collection of sensors used to conveniently group them up
+    :param resolution: 2D grid resolution for rasterization
+    :param service: SensorObservationService() type object of request
+    """
+
+    target_crs = grass.read_command('g.proj', flags='fj').rstrip(os.linesep)
+    target = osr.SpatialReference(target_crs)
+    target.ImportFromProj4(target_crs)
+    if target == 'XY location (unprojected)':
+        grass.fatal("Sorry, XY locations are not supported!")
+
+    offs = [o.id for o in service.offerings]
+    off_idx = offs.index(offering)
+    outputFormat = service.get_operation_by_name('DescribeSensor').parameters['outputFormat']['values'][0]
+
+    if procedures:
+        procedures = procedures.split(',')
+    else:
+        procedures = service.offerings[off_idx].procedures
+
+    tempFilePath = grass.tempfile()
+    n = None
+    s = None
+    e = None
+    w = None
+
+    with open(tempFilePath, 'w') as tempFile:
+        for proc in procedures:
+            response = service.describe_sensor(procedure=proc,
+                                               outputFormat=outputFormat)
+            root = SensorML(response)
+            system = root.members[0]
+            crs = int(system.location[0].attrib['srsName'].split(':')[1])
+            coords = system.location[0][0].text.replace('\n','')
+            sx = float(coords.split(',')[0])
+            sy = float(coords.split(',')[1])
+            sz = float(coords.split(',')[2])
+            source = osr.SpatialReference()
+            source.ImportFromEPSG(crs)
+            transform = osr.CoordinateTransformation(source, target)
+            point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx,
+                                                                        sy,
+                                                                        sz))
+            point.Transform(transform)
+            x = point.GetX()
+            y = point.GetY()
+            z = point.GetZ()
+            tempFile.write('{} {} {}\n'.format(x, y, z))
+
+            if not n:
+                n = y + 1
+                s = y - 1
+                e = x + 1
+                w = x - 1
+            else:
+                if y >= n:
+                    n = y + 1
+                elif y <= s:
+                    s = y - 1
+                if x >= e:
+                    e = x + 1
+                elif y <= w:
+                    w = x - 1
+
+    run_command('g.region', n=n, s=s, w=w, e=e, res=resolution)
+    run_command('r.in.xyz',
+                input=tempFilePath,
+                separator='space',
+                output='{}_{}'.format(options['output'], offering))
+
+
+def full_maps(parsed_obs, offering, secondsGranularity, resolution,
+              event_time):
     """
     Create raster maps representing offerings, observed props and procedures
     :param parsed_obs: Observations for a given offering in geoJSON format
