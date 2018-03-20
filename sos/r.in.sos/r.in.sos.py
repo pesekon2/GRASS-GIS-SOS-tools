@@ -20,6 +20,10 @@
 #% keyword: SOS
 #%end
 #%flag
+#% key: s
+#% description: Skip import of observation, import only procedure info
+#%end
+#%flag
 #% key: v
 #% description: Print observed properties for given url and offering
 #% guisection: SOS description
@@ -198,14 +202,7 @@ def main():
       'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
         get_description(service, options, flags)
 
-    if options['offering'] == '' or options['output'] == '':
-        if sys.version >= (3, 0):
-            sys.tracebacklimit = None
-        else:
-            sys.tracebacklimit = 0
-        raise AttributeError(
-            "You have to define any flags or use 'output' and 'offering' "
-            "parameters to get the data")
+    check_missing_params(options['offering'], options['output'])
 
     if options['granularity'] != '':
         import grass.temporal as tgis

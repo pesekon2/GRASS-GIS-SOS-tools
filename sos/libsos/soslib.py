@@ -219,3 +219,19 @@ def handle_not_given_options(service, offering=None, procedure=None,
         eventTime = eventTime
 
     return procedure, observed_properties, eventTime
+
+def check_missing_params(offering, output):
+    """
+    Check whether all the necessary params or flags were defined
+    :param offering: A collection of sensors used to conveniently group them up
+    :param output: prefix for output maps
+    """
+
+    if offering == '' or output == '':
+        if sys.version >= (3, 0):
+            sys.tracebacklimit = None
+        else:
+            sys.tracebacklimit = 0
+        raise AttributeError(
+            "You have to define any flags or use 'output' and 'offering' "
+            "parameters to get the data")
