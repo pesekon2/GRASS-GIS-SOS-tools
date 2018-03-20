@@ -229,7 +229,7 @@ def main():
                     username=options['username'],
                     password=options['password'])
             except:
-                # Todo: catch errors properly (e.g. timeout)
+                # TODO: catch errors properly (e.g. timeout)
                 grass.fatal('Request did not succeed!')
 
             try:

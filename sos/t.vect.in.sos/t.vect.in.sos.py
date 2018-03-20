@@ -203,14 +203,18 @@ def main():
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
 
-        obs = service.get_observation(
-            offerings=[off],
-            responseFormat=options['response_format'],
-            observedProperties=observed_properties,
-            procedure=procedure,
-            eventTime=event_time,
-            username=options['username'],
-            password=options['password'])
+        try:
+            obs = service.get_observation(
+                offerings=[off],
+                responseFormat=options['response_format'],
+                observedProperties=observed_properties,
+                procedure=procedure,
+                eventTime=event_time,
+                username=options['username'],
+                password=options['password'])
+        except:
+            # TODO: catch errors properly (e.g. timeout)
+            grass.fatal('Request did not succeed!')
 
         try:
             if options['version'] in ['1.0.0', '1.0'] and str(
