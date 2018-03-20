@@ -329,7 +329,7 @@ def maps_without_observations(offering, resolution, service, procedures):
                                                outputFormat=outputFormat)
             root = SensorML(response)
             system = root.members[0]
-            crs = int(system.location[0].attrib['srsName'].split(':')[1])
+            crs = int(system.location[0].attrib['srsName'].split(':')[-1])
             coords = system.location[0][0].text.replace('\n','')
             sx = float(coords.split(',')[0])
             sy = float(coords.split(',')[1])

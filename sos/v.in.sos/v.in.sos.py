@@ -319,7 +319,7 @@ def maps_without_observations(offering, new, service, procedures):
         keywords = ','.join(system.keywords)
         sensType = system.classifiers['Sensor Type'].value
         sysType = system.classifiers['System Type'].value
-        crs = int(system.location[0].attrib['srsName'].split(':')[1])
+        crs = int(system.location[0].attrib['srsName'].split(':')[-1])
         coords = system.location[0][0].text.replace('\n','')
         sx = float(coords.split(',')[0])
         sy = float(coords.split(',')[1])
