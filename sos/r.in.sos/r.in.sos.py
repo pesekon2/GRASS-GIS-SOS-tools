@@ -233,7 +233,6 @@ def main():
         procedure, observed_properties, event_time = handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
-        event_time = 'T'.join(event_time.split(' '))
 
         obs = service.get_observation(
             offerings=[off], responseFormat=options['response_format'],
