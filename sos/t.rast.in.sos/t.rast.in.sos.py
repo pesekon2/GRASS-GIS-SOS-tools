@@ -22,27 +22,27 @@
 #%flag
 #% key: v
 #% description: Print observed properties for given url and offering
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%flag
 #% key: o
 #% description: Print offerings for given url
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%flag
 #% key: p
 #% description: Print procedures for given url and offering
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%flag
 #% key: t
 #% description: Print begin and end timestamps for given url and offering
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%flag
 #% key: g
 #% description: Print informations in shell script style
-#% guisection: SOS description
+#% guisection: Print
 #%end
 #%option
 #% key: url
