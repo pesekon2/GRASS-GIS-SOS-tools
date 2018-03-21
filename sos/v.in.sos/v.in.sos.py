@@ -154,8 +154,8 @@
 import sys
 import os
 import json
-from sqlite3 import OperationalError
-import time, datetime
+import time
+import datetime
 try:
     from owslib.sos import SensorObservationService
     from owslib.swe.sensor.sml import SensorML
@@ -245,10 +245,10 @@ def main():
                     sys.tracebacklimit = None
                 else:
                     sys.tracebacklimit = 0
-                raise AttributeError('There is no data for at least one of your '
-                                     'procedures, could  you change the time '
-                                     'parameter, observed properties, '
-                                     'procedures or offerings')
+                raise AttributeError(
+                    'There is no data for at least one of your procedures, '
+                    'could  you change the time parameter, observed '
+                    'properties, procedures or offerings')
 
             create_maps(parsed_obs, off, layerscount, new,
                         secondsGranularity, event_time, service)
@@ -267,6 +267,7 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity,
     :param secondsGranularity: Granularity in seconds
     :param event_time: Timestamp of first/of last requested observation
     :param service: SensorObservationService() type object of request
+    :param procedures: List of queried procedures (observation providers)
     """
 
     if flags['s']:
@@ -277,6 +278,13 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity,
 
 
 def maps_without_observations(offering, new, service, procedures):
+    """
+    Import just vector points/sensors without their observations
+    :param offering: A collection of sensors used to conveniently group them up
+    :param new: Given vector map which should be updated with new layers
+    :param service: SensorObservationService() type object of request
+    :param procedures: List of queried procedures (observation providors)
+    """
     points = dict()
     freeCat = 1
     # Set target projection of current LOCATION
@@ -286,7 +294,6 @@ def maps_without_observations(offering, new, service, procedures):
     if target == 'XY location (unprojected)':
         grass.fatal("Sorry, XY locations are not supported!")
 
-   # The following is work in progress
     cols = [(u'cat', 'INTEGER PRIMARY KEY'),
             (u'name', 'varchar'),
             (u'description', 'varchar'),
@@ -302,7 +309,8 @@ def maps_without_observations(offering, new, service, procedures):
         new.open('w', tab_name=options['output'], tab_cols=cols)
     offs = [o.id for o in service.offerings]
     off_idx = offs.index(offering)
-    outputFormat = service.get_operation_by_name('DescribeSensor').parameters['outputFormat']['values'][0]
+    outputFormat = service.get_operation_by_name('DescribeSensor').parameters[
+        'outputFormat']['values'][0]
 
     if procedures:
         procedures = procedures.split(',')
@@ -320,7 +328,7 @@ def maps_without_observations(offering, new, service, procedures):
         sensType = system.classifiers['Sensor Type'].value
         sysType = system.classifiers['System Type'].value
         crs = int(system.location[0].attrib['srsName'].split(':')[-1])
-        coords = system.location[0][0].text.replace('\n','')
+        coords = system.location[0][0].text.replace('\n', '')
         sx = float(coords.split(',')[0])
         sy = float(coords.split(',')[1])
         sz = float(coords.split(',')[2])
@@ -328,7 +336,9 @@ def maps_without_observations(offering, new, service, procedures):
         source = osr.SpatialReference()
         source.ImportFromEPSG(crs)
         transform = osr.CoordinateTransformation(source, target)
-        point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx, sy, sz))
+        point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx,
+                                                                    sy,
+                                                                    sz))
         point.Transform(transform)
         x = point.GetX()
         y = point.GetY()
@@ -351,7 +361,17 @@ def maps_without_observations(offering, new, service, procedures):
     new.close(build=True)
 
 
-def full_maps(parsed_obs, offering, layer, new, secondsGranularity, event_time):
+def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
+              event_time):
+    """
+    Import vector points/sensors with their observations in the attribute table
+    :param parsed_obs: Observations for a given offering in geoJSON format
+    :param offering: A collection of sensors used to conveniently group them up
+    :param layer: Count of yet existing layers in vector map
+    :param new: Given vector map which should be updated with new layers
+    :param secondsGranularity: Granularity in seconds
+    :param event_time: Timestamp of first/of last requested observation
+    """
     i = layer + 1
     points = dict()
     freeCat = 1

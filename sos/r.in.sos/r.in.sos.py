@@ -163,9 +163,9 @@
 
 
 import sys
-from sqlite3 import OperationalError
 import json
-import time, datetime
+import time
+import datetime
 import os
 try:
     from owslib.sos import SensorObservationService
@@ -254,7 +254,7 @@ def main():
 
             try:
                 if options['version'] in ['1.0.0', '1.0'] and \
-                  str(options['response_format']) == 'text/xml;subtype="om/1.0.0"':
+                  options['response_format'] == 'text/xml;subtype="om/1.0.0"':
                     for prop in observed_properties:
                         parsed_obs.update({prop: xml2geojson(obs, prop)})
                 elif str(options['response_format']) == 'application/json':
@@ -265,10 +265,10 @@ def main():
                     sys.tracebacklimit = None
                 else:
                     sys.tracebacklimit = 0
-                raise AttributeError('There is no data for at least one of your '
-                                     'procedures, could  you change the time '
-                                     'parameter, observed properties, '
-                                     'procedures or offerings')
+                raise AttributeError(
+                    'There is no data for at least one of your procedures, '
+                    'could  you change the time parameter, observed '
+                    'properties, procedures or offerings')
 
             create_maps(parsed_obs, off, secondsGranularity, resolution,
                         event_time, _)
@@ -284,8 +284,9 @@ def create_maps(parsed_obs, offering, secondsGranularity, resolution,
     :param offering: A collection of sensors used to conveniently group them up
     :param secondsGranularity: Granularity in seconds
     :param resolution: 2D grid resolution for rasterization
-    :param event_time: Timestamp of first/timestamp of last requested observation
+    :param event_time: Timestamp of first/of last requested observation
     :param service: SensorObservationService() type object of request
+    :param procedures: List of queried procedures (observation providors)
     """
 
     if flags['s']:
@@ -300,6 +301,7 @@ def maps_without_observations(offering, resolution, service, procedures):
     :param offering: A collection of sensors used to conveniently group them up
     :param resolution: 2D grid resolution for rasterization
     :param service: SensorObservationService() type object of request
+    :param procedures: List of queried procedures (observation providors)
     """
 
     target_crs = grass.read_command('g.proj', flags='fj').rstrip(os.linesep)
@@ -310,7 +312,8 @@ def maps_without_observations(offering, resolution, service, procedures):
 
     offs = [o.id for o in service.offerings]
     off_idx = offs.index(offering)
-    outputFormat = service.get_operation_by_name('DescribeSensor').parameters['outputFormat']['values'][0]
+    outputFormat = service.get_operation_by_name('DescribeSensor').parameters[
+        'outputFormat']['values'][0]
 
     if procedures:
         procedures = procedures.split(',')
@@ -330,7 +333,7 @@ def maps_without_observations(offering, resolution, service, procedures):
             root = SensorML(response)
             system = root.members[0]
             crs = int(system.location[0].attrib['srsName'].split(':')[-1])
-            coords = system.location[0][0].text.replace('\n','')
+            coords = system.location[0][0].text.replace('\n', '')
             sx = float(coords.split(',')[0])
             sy = float(coords.split(',')[1])
             sz = float(coords.split(',')[2])
@@ -376,6 +379,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
     :param offering: A collection of sensors used to conveniently group them up
     :param secondsGranularity: Granularity in seconds
     :param resolution: 2D grid resolution for rasterization
+    :param event_time: Timestamp of first/of last requested observation
     """
 
     timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone

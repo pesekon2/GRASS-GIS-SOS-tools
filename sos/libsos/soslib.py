@@ -220,6 +220,7 @@ def handle_not_given_options(service, offering=None, procedure=None,
 
     return procedure, observed_properties, eventTime
 
+
 def check_missing_params(offering, output):
     """
     Check whether all the necessary params or flags were defined
