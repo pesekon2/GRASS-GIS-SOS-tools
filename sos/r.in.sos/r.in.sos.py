@@ -476,7 +476,6 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
                         i = 1
                     else:
                         i += 1
-                    print(tableName, procedure, i, values)
 
                     if options['method'] == 'average':
                         value = sum(values) / len(values)
@@ -516,8 +515,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
 
                 run_command('v.to.rast', input=tableName, output=tableName,
                             use='attr', attribute_column='value', layer=1,
-                            label_column='name', type='point',
-                            quiet=True)
+                            type='point', quiet=True)
 
                 if flags['k'] is False:
                     run_command('g.remove', 'f', type='vector',
