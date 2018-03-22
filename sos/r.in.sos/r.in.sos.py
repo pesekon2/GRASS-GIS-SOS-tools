@@ -357,11 +357,11 @@ def maps_without_observations(offering, resolution, service, procedures):
             else:
                 if y >= n:
                     n = y + 1
-                elif y <= s:
+                if y <= s:
                     s = y - 1
                 if x >= e:
                     e = x + 1
-                elif y <= w:
+                if x <= w:
                     w = x - 1
 
     run_command('g.region', n=n, s=s, w=w, e=e, res=resolution)
