@@ -21,7 +21,11 @@
 #%end
 #%flag
 #% key: s
-#% description: Skip import of observation, import only procedure info
+#% description: Skip import of observation, import only procedure info for all procedures of offering
+#%end
+#%flag
+#% key: i
+#% description: Import also procedures with no observations
 #%end
 #%flag
 #% key: v
@@ -236,7 +240,9 @@ def main():
                 if options['version'] in ['1.0.0', '1.0'] and str(
                   options['response_format']) == 'text/xml;subtype="om/1.0.0"':
                     for prop in observed_properties:
-                        parsed_obs.update({prop: xml2geojson(obs, prop)})
+                        parsed_obs.update({prop: xml2geojson(obs,
+                                                             prop,
+                                                             flags['i'])})
                 elif str(options['response_format']) == 'application/json':
                     for prop in observed_properties:
                         parsed_obs.update({prop: json2geojson(obs, prop)})
@@ -393,6 +399,7 @@ def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
             tableName = '_'.join(tableName.split('.'))
 
         data = json.loads(observation)
+        emptyProcs = list()
 
         intervals = {}
         for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
@@ -403,6 +410,7 @@ def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
         for a in data['features']:
             name = a['properties']['name']
+            empty = True
 
             if name not in points.keys():
                 if new.is_open() is False:
@@ -413,6 +421,8 @@ def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
 
             for timestamp, value in a['properties'].iteritems():
                 if timestamp != 'name':
+                    if empty:
+                        empty = False
                     observationStartTime = timestamp[:-4]
                     secondsTimestamp = int(time.mktime(
                         time.strptime(observationStartTime, timestampPattern)))
@@ -430,6 +440,9 @@ def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
                                 if (u'%s' % timestamp2, 'DOUBLE') not in cols:
                                     cols.append((u'%s' % timestamp2, 'DOUBLE'))
                             break
+
+            if empty:
+                emptyProcs.append(value)  # in value there is name of last proc
 
         if len(cols) > 2000:
             grass.warning(
@@ -451,6 +464,15 @@ def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
         new.table = new.dblinks[i - 1].table()
         new.table.create(cols)
         inserts = dict()
+
+        # create attr tab inserts for empty procs
+        for emptyProc in emptyProcs:
+            insert = [None] * len(cols)
+            insert[0] = points[emptyProc]
+            insert[1] = emptyProc
+            inserts.update({emptyProc: insert})
+
+        # create attr tab inserts for procs with observations
         for interval in intervals.keys():
             if len(intervals[interval]) != 0:
                 timestamp = datetime.datetime.fromtimestamp(

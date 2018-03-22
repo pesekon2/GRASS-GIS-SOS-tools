@@ -21,7 +21,7 @@
 #%end
 #%flag
 #% key: s
-#% description: Skip import of observation, import only procedure info
+#% description: Skip import of observation and import all procedures for offering
 #%end
 #%flag
 #% key: v
@@ -256,7 +256,8 @@ def main():
                 if options['version'] in ['1.0.0', '1.0'] and \
                   options['response_format'] == 'text/xml;subtype="om/1.0.0"':
                     for prop in observed_properties:
-                        parsed_obs.update({prop: xml2geojson(obs, prop)})
+                        parsed_obs.update({prop: xml2geojson(obs,
+                                                             prop)})
                 elif str(options['response_format']) == 'application/json':
                     for prop in observed_properties:
                         parsed_obs.update({prop: json2geojson(obs, prop)})
@@ -406,6 +407,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
 
         for a in data['features']:
             name = a['properties']['name']
+            empty = True
             geometries.update({name: a['geometry']['coordinates']})
 
             for timestamp, value in a['properties'].iteritems():

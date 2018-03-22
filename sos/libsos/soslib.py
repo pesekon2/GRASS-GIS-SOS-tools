@@ -21,11 +21,12 @@ import xml.etree.ElementTree as etree
 from osgeo import ogr, osr
 
 
-def xml2geojson(xml_file, observedProperty):
+def xml2geojson(xml_file, observedProperty, importEmpty=False):
     """
     Convert file in standard xml (text/xml;subtype="om/1.0.0") to geoJSON
     :param xml_file: Response from SOS server in text/xml;subtype="om/1.0.0"
     :param observedProperty: One observed property from SOS response
+    :param importEmpty: Import also empty procedures
     :return json.dumps: Parsed response in geoJSON
     """
 
@@ -47,6 +48,7 @@ def xml2geojson(xml_file, observedProperty):
         nameFound = False
         separator = ','
         currentIndex = 1
+        include = True
 
         for item in child.iter():
             if 'name' in item.tag and nameFound is False:
@@ -63,22 +65,24 @@ def xml2geojson(xml_file, observedProperty):
                 tokenSeparator = item.attrib['tokenSeparator']
                 blockSeparator = item.attrib['blockSeparator']
             elif 'values' in item.tag:
+                if not item.text:
+                    if importEmpty:
+                        values = 0
+                    else:
+                        include = False
+                    print(
+                        'WARNING: No observations of '
+                        '{} found for procedure {}. '.format(observedProperty,
+                                                             data['name'])
+                    )
+                    break
                 for values in item.text.split(blockSeparator):
                     timeStamp = 't%s' % values.split(tokenSeparator)[0]
                     for character in [':', '-', '+']:
                         timeStamp = ''.join(timeStamp.split(character))
-                    try:
-                        data.update({timeStamp: values.split(
-                            tokenSeparator)[wantedIndex]})
-                    except UnboundLocalError:
-                        if sys.version >= (3, 0):
-                            sys.tracebacklimit = None
-                        else:
-                            sys.tracebacklimit = 0
-                        raise UnboundLocalError('At least one of observed '
-                                                'properties was not found. '
-                                                'Please check it for typos or'
-                                                ' control it with -v flag.')
+
+                    data.update({timeStamp: values.split(
+                        tokenSeparator)[wantedIndex]})
             elif 'location' in item.tag:
                 point = list(item)[0]
                 geometryType = point.tag.split('}')[1]
@@ -86,18 +90,20 @@ def xml2geojson(xml_file, observedProperty):
                 for i in range(len(geometryCoords)):
                     geometryCoords[i] = float(geometryCoords[i])
 
-        a['features'].append({"type": "Feature",
-                              "geometry": {
-                                  "type": geometryType,
-                                  "coordinates": geometryCoords},
-                              "properties": {
-                                  key: value for key, value in data.items()}
-                              })
+        if include:
+            a['features'].append(
+                {"type": "Feature",
+                 "geometry": { "type": geometryType,
+                               "coordinates": geometryCoords},
+                 "properties": {
+                     key: value for key, value in data.items()}
+                 })
 
     return json.dumps(a, indent=4, sort_keys=True)
 
 
 def json2geojson(json_file):
+    # TODO: Has to be updated, doesn't work really well (use xml2geojson)
     """
     Convert file in json format to geoJSON
     :param json_file: Response from SOS server in json format
