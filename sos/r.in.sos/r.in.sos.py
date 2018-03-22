@@ -350,19 +350,19 @@ def maps_without_observations(offering, resolution, service, procedures):
             tempFile.write('{} {} {}\n'.format(x, y, z))
 
             if not n:
-                n = y + 1
-                s = y - 1
-                e = x + 1
-                w = x - 1
+                n = y + resolution / 2
+                s = y - resolution / 2
+                e = x + resolution / 2
+                w = x - resolution / 2
             else:
                 if y >= n:
-                    n = y + 1
+                    n = y + resolution / 2
                 if y <= s:
-                    s = y - 1
+                    s = y - resolution / 2
                 if x >= e:
-                    e = x + 1
+                    e = x + resolution / 2
                 if x <= w:
-                    w = x - 1
+                    w = x - resolution / 2
 
     run_command('g.region', n=n, s=s, w=w, e=e, res=resolution)
     run_command('r.in.xyz',
@@ -449,6 +449,11 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
                 new.open(mode='w', layer=1, tab_name=tableName,
                          link_name=tableName, tab_cols=cols, overwrite=True)
                 i = 0
+                n = None
+                s = None
+                e = None
+                w = None
+
                 for procedure, values in intervals[interval].iteritems():
                     if new.exist() is False:
                         i = 1
@@ -465,13 +470,30 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
                               cat=i,
                               attrs=(procedure, value,))
 
+                    if options['bbox'] == '':
+                        x, y, z = geometries[procedure]
+                        if not n:
+                            n = y + resolution / 2
+                            s = y - resolution / 2
+                            e = x + resolution / 2
+                            w = x - resolution / 2
+                        else:
+                            if y >= n:
+                                n = y + resolution / 2
+                            if y <= s:
+                                s = y - resolution / 2
+                            if x >= e:
+                                e = x + resolution / 2
+                            if x <= w:
+                                w = x - resolution / 2
+
                 new.table.conn.commit()
 
                 new.close(build=False)
                 run_command('v.build', quiet=True, map=tableName)
 
                 if options['bbox'] == '':
-                    run_command('g.region', vect=tableName, res=resolution)
+                    run_command('g.region', n=n, s=s, w=w, e=e, res=resolution)
 
                 run_command('v.to.rast', input=tableName, output=tableName,
                             use='attr', attribute_column='value', layer=1,
