@@ -230,6 +230,8 @@ def main():
                       ' be automatically based on procedure geometries for '
                       'every map.')
 
+    target = get_target_crs()
+
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
         procedure, observed_properties, event_time = handle_not_given_options(
@@ -237,7 +239,7 @@ def main():
             options['event_time'])
 
         if flags['s']:
-            create_maps(_, off, _, resolution, _, service, procedure)
+            create_maps(_, off, _, resolution, _, service, target, procedure)
         else:
             try:
                 obs = service.get_observation(
@@ -270,15 +272,21 @@ def main():
                     'There is no data for at least one of your procedures, '
                     'could  you change the time parameter, observed '
                     'properties, procedures or offerings')
+            except ValueError as e:
+                if sys.version >= (3, 0):
+                    sys.tracebacklimit = None
+                else:
+                    sys.tracebacklimit = 0
+                raise e
 
             create_maps(parsed_obs, off, secondsGranularity, resolution,
-                        event_time, _)
+                        event_time, service, target)
 
     return 0
 
 
 def create_maps(parsed_obs, offering, secondsGranularity, resolution,
-                event_time, service, procedures=None):
+                event_time, service, target, procedures=None):
     """
     Create raster maps representing offerings, observed props and procedures
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -291,25 +299,21 @@ def create_maps(parsed_obs, offering, secondsGranularity, resolution,
     """
 
     if flags['s']:
-        maps_without_observations(offering, resolution, service, procedures)
+        maps_without_observations(offering, resolution, service, procedures,
+                                  target)
     else:
         full_maps(parsed_obs, offering, secondsGranularity,
-                  resolution, event_time)
+                  resolution, event_time, target)
 
 
-def maps_without_observations(offering, resolution, service, procedures):
+def maps_without_observations(offering, resolution, service, procedures,
+                              target):
     """
     :param offering: A collection of sensors used to conveniently group them up
     :param resolution: 2D grid resolution for rasterization
     :param service: SensorObservationService() type object of request
     :param procedures: List of queried procedures (observation providors)
     """
-
-    target_crs = grass.read_command('g.proj', flags='fj').rstrip(os.linesep)
-    target = osr.SpatialReference(target_crs)
-    target.ImportFromProj4(target_crs)
-    if target == 'XY location (unprojected)':
-        grass.fatal("Sorry, XY locations are not supported!")
 
     offs = [o.id for o in service.offerings]
     off_idx = offs.index(offering)
@@ -373,7 +377,7 @@ def maps_without_observations(offering, resolution, service, procedures):
 
 
 def full_maps(parsed_obs, offering, secondsGranularity, resolution,
-              event_time):
+              event_time, target):
     """
     Create raster maps representing offerings, observed props and procedures
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -394,6 +398,11 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
               '{}, observed property {}'.format(offering, key))
 
         data = json.loads(observation)
+        crs = data['crs']
+        crs = int(crs['properties']['name'].split(':')[-1])
+        source = osr.SpatialReference()
+        source.ImportFromEPSG(crs)
+        transform = osr.CoordinateTransformation(source, target)
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
@@ -407,8 +416,14 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
 
         for a in data['features']:
             name = a['properties']['name']
-            empty = True
-            geometries.update({name: a['geometry']['coordinates']})
+
+            sx, sy, sz = a['geometry']['coordinates']
+            point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx,
+                                                                        sy,
+                                                                        sz))
+            point.Transform(transform)
+            coords = (point.GetX(), point.GetY(), point.GetZ())
+            geometries.update({name: coords})
 
             for timestamp, value in a['properties'].iteritems():
                 if timestamp != 'name':
@@ -461,6 +476,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
                         i = 1
                     else:
                         i += 1
+                    print(tableName, procedure, i, values)
 
                     if options['method'] == 'average':
                         value = sum(values) / len(values)
@@ -493,6 +509,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
 
                 new.close(build=False)
                 run_command('v.build', quiet=True, map=tableName)
+                run_command('v.db.select', map=tableName)
 
                 if options['bbox'] == '':
                     run_command('g.region', n=n, s=s, w=w, e=e, res=resolution)

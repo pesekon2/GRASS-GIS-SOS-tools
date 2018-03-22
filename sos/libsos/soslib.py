@@ -16,9 +16,11 @@
 
 
 import sys
+import os
 import json
 import xml.etree.ElementTree as etree
 from osgeo import ogr, osr
+from grass.script import core as grass
 
 
 def xml2geojson(xml_file, observedProperty, importEmpty=False):
@@ -34,13 +36,18 @@ def xml2geojson(xml_file, observedProperty, importEmpty=False):
     a = {"type": "FeatureCollection", "features": []}
 
     root = tree.getroot()
+    crs = 0
 
     for child in root.iter():
         if 'location' in child.tag:
+            if crs and crs != list(child)[0].attrib['srsName']:
+                raise ValueError('CRS of different points within one offering '
+                                 'do not match.')
+            crs = list(child)[0].attrib['srsName']
+
             a.update({"crs": {
                 "type": "name",
-                "properties": {"name": list(child)[0].attrib['srsName']}}})
-            break
+                "properties": {"name": crs}}})
 
     for child in root.findall('{http://www.opengis.net/om/1.0}member'):
         data = dict()
@@ -242,3 +249,17 @@ def check_missing_params(offering, output):
         raise AttributeError(
             "You have to define any flags or use 'output' and 'offering' "
             "parameters to get the data")
+
+def get_target_crs():
+    """
+    Return target projection of current LOCATION
+    :return target: SpatialReference() object of location projection
+    """
+
+    target_crs = grass.read_command('g.proj', flags='fj').rstrip(os.linesep)
+    target = osr.SpatialReference(target_crs)
+    target.ImportFromProj4(target_crs)
+    if target == 'XY location (unprojected)':
+        grass.fatal("Sorry, XY locations are not supported!")
+
+    return target

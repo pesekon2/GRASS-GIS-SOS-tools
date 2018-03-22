@@ -209,8 +209,9 @@ def main():
     else:
         secondsGranularity = 1
 
-    run_command('g.remove', 'f', type='vector',
-                name=options['output'])
+    target = get_target_crs()
+
+    run_command('g.remove', 'f', type='vector', name=options['output'])
     new = VectorTopo(options['output'])
 
     for off in options['offering'].split(','):
@@ -220,7 +221,7 @@ def main():
             options['event_time'])
 
         if flags['s']:
-            create_maps(_, off, _, new, _, _, service, procedure)
+            create_maps(_, off, _, new, _, _, service, target, procedure)
         else:
             try:
                 obs = service.get_observation(
@@ -255,15 +256,21 @@ def main():
                     'There is no data for at least one of your procedures, '
                     'could  you change the time parameter, observed '
                     'properties, procedures or offerings')
+            except ValueError as e:
+                if sys.version >= (3, 0):
+                    sys.tracebacklimit = None
+                else:
+                    sys.tracebacklimit = 0
+                raise e
 
             create_maps(parsed_obs, off, layerscount, new,
-                        secondsGranularity, event_time, service)
+                        secondsGranularity, event_time, service, target)
             layerscount += len(parsed_obs)
         return 0
 
 
 def create_maps(parsed_obs, offering, layer, new, secondsGranularity,
-                event_time, service, procedures=None):
+                event_time, service, target, procedures=None):
     """
     Add layers representing offerings and observed properties to the vector map
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -277,13 +284,13 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity,
     """
 
     if flags['s']:
-        maps_without_observations(offering, new, service, procedures)
+        maps_without_observations(offering, new, service, procedures, target)
     else:
         full_maps(parsed_obs, offering, layer, new, secondsGranularity,
-                  event_time)
+                  event_time, target)
 
 
-def maps_without_observations(offering, new, service, procedures):
+def maps_without_observations(offering, new, service, procedures, target):
     """
     Import just vector points/sensors without their observations
     :param offering: A collection of sensors used to conveniently group them up
@@ -293,12 +300,6 @@ def maps_without_observations(offering, new, service, procedures):
     """
     points = dict()
     freeCat = 1
-    # Set target projection of current LOCATION
-    target_crs = grass.read_command('g.proj', flags='fj').rstrip(os.linesep)
-    target = osr.SpatialReference(target_crs)
-    target.ImportFromProj4(target_crs)
-    if target == 'XY location (unprojected)':
-        grass.fatal("Sorry, XY locations are not supported!")
 
     cols = [(u'cat', 'INTEGER PRIMARY KEY'),
             (u'name', 'varchar'),
@@ -368,7 +369,7 @@ def maps_without_observations(offering, new, service, procedures):
 
 
 def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
-              event_time):
+              event_time, target):
     """
     Import vector points/sensors with their observations in the attribute table
     :param parsed_obs: Observations for a given offering in geoJSON format
@@ -399,12 +400,19 @@ def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
             tableName = '_'.join(tableName.split('.'))
 
         data = json.loads(observation)
-        emptyProcs = list()
+        # get the transformation between source and target crs
+        crs = data['crs']
+        crs = int(crs['properties']['name'].split(':')[-1])
+        source = osr.SpatialReference()
+        source.ImportFromEPSG(crs)
+        transform = osr.CoordinateTransformation(source, target)
+
 
         intervals = {}
         for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
             intervals.update({secondsStamp: dict()})
 
+        emptyProcs = list()
         timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
@@ -415,8 +423,17 @@ def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
             if name not in points.keys():
                 if new.is_open() is False:
                     new.open('w')
+
                 points.update({name: freeCat})
-                new.write(Point(*a['geometry']['coordinates']), cat=freeCat)
+
+                # transform the geometry into the target crs
+                sx, sy, sz = a['geometry']['coordinates']
+                point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(
+                    sx, sy, sz))
+                point.Transform(transform)
+                coords = (point.GetX(), point.GetY(), point.GetZ())
+
+                new.write(Point(*coords), cat=freeCat)
                 freeCat += 1
 
             for timestamp, value in a['properties'].iteritems():
