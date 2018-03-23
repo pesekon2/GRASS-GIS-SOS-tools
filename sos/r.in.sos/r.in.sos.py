@@ -216,7 +216,13 @@ def main():
         secondsGranularity = 1
 
     if options['resolution'] == '':
-        resolution = None
+        a = grass.read_command('g.region', flags='gf')
+        resolution = float(a.split('nsres=')[1].split(' ')[0])
+        run_command(
+            'g.message',
+            flags='w',
+            message='No resolution was setted. Using the resolution '
+                    '{} (nres of your current setting).'.format(resolution))
     else:
         resolution = float(options['resolution'])
 
@@ -508,7 +514,6 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
 
                 new.close(build=False)
                 run_command('v.build', quiet=True, map=tableName)
-                run_command('v.db.select', map=tableName)
 
                 if options['bbox'] == '':
                     run_command('g.region', n=n, s=s, w=w, e=e, res=resolution)

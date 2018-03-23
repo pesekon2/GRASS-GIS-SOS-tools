@@ -21,6 +21,7 @@ import json
 import xml.etree.ElementTree as etree
 from osgeo import ogr, osr
 from grass.script import core as grass
+from grass.script import run_command
 
 
 def xml2geojson(xml_file, observedProperty, importEmpty=False):
@@ -77,10 +78,13 @@ def xml2geojson(xml_file, observedProperty, importEmpty=False):
                         values = 0
                     else:
                         include = False
-                    print(
-                        'WARNING: No observations of '
-                        '{} found for procedure {}. '.format(observedProperty,
-                                                             data['name'])
+                    run_command(
+                        'g.message',
+                        flags='w',
+                        message='No observations of '
+                                '{} found for procedure {}.'.format(
+                            observedProperty,
+                            data['name'])
                     )
                     break
                 for values in item.text.split(blockSeparator):
