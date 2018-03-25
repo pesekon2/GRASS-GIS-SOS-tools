@@ -267,3 +267,37 @@ def get_target_crs():
         grass.fatal("Sorry, XY locations are not supported!")
 
     return target
+
+def standardize_table_name(nameParts):
+    """
+    Drops unsupported characters from the tablename
+    :param nameParts: List of strings to be included in the tablename
+    :return tableName: Tablename with unsupported characters replaced with '_'
+    """
+
+    tableName = nameParts[0]
+    for i in nameParts[1:]:
+        tableName = '{}_{}'.format(tableName, i)
+
+    if ':' in tableName:
+        tableName = '_'.join(tableName.split(':'))
+    if '-' in tableName:
+        tableName = '_'.join(tableName.split('-'))
+    if '.' in tableName:
+        tableName = '_'.join(tableName.split('.'))
+
+    return tableName
+
+def get_transformation(crs, target):
+    """
+    Get the transformation key to be used to transform your sensor coordinates
+    :param crs: The original CRS of sensors
+    :param target: The target CRS for sensors
+    :return transform: The transformation key
+    """
+
+    source = osr.SpatialReference()
+    source.ImportFromEPSG(crs)
+    transform = osr.CoordinateTransformation(source, target)
+
+    return transform

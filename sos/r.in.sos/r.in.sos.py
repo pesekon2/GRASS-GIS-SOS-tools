@@ -348,9 +348,7 @@ def maps_without_observations(offering, resolution, service, procedures,
             sx = float(coords.split(',')[0])
             sy = float(coords.split(',')[1])
             sz = float(coords.split(',')[2])
-            source = osr.SpatialReference()
-            source.ImportFromEPSG(crs)
-            transform = osr.CoordinateTransformation(source, target)
+            transform = get_transformation(crs, target)
             point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx,
                                                                         sy,
                                                                         sz))
@@ -406,9 +404,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
         data = json.loads(observation)
         crs = data['crs']
         crs = int(crs['properties']['name'].split(':')[-1])
-        source = osr.SpatialReference()
-        source.ImportFromEPSG(crs)
-        transform = osr.CoordinateTransformation(source, target)
+        transform = get_transformation(crs, target)
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
