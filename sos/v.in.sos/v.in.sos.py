@@ -285,14 +285,27 @@ def create_maps(parsed_obs, offering, layer, new, secondsGranularity,
     :param secondsGranularity: Granularity in seconds
     :param event_time: Timestamp of first/of last requested observation
     :param service: SensorObservationService() type object of request
+    :param target: The target CRS for sensors
+    :param obsProps: Oberved properties
     :param procedures: List of queried procedures (observation providers)
     """
 
     if flags['s']:
         maps_without_observations(offering, new, service, procedures, target)
     else:
-        full_maps(parsed_obs, offering, layer, new, secondsGranularity,
-                  event_time, target, obsProps)
+        i = layer + 1
+        timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
+        startTime = event_time.split('+')[0]
+        epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
+        endTime = event_time.split('+')[1].split('/')[1]
+        epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
+
+        if not flags['l']:
+            maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
+                                 target, obsProps, epochS, epochE, i)
+        else:
+            maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
+                              target, epochS, epochE, layer+1)
 
 
 def maps_without_observations(offering, new, service, procedures, target):
@@ -303,6 +316,7 @@ def maps_without_observations(offering, new, service, procedures, target):
     :param service: SensorObservationService() type object of request
     :param procedures: List of queried procedures (observation providors)
     """
+
     points = dict()
     freeCat = 1
 
@@ -371,112 +385,257 @@ def maps_without_observations(offering, new, service, procedures, target):
     new.close(build=True)
 
 
-def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
-              event_time, target, obsProps):
+def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
+                      target, epochS, epochE, i):
     """
-    Import vector points/sensors with their observations in the attribute table
+    Import vectors with layers representing output_offering_observedproperties
+    and rows representing procedures
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
-    :param layer: Count of yet existing layers in vector map
     :param new: Given vector map which should be updated with new layers
     :param secondsGranularity: Granularity in seconds
-    :param event_time: Timestamp of first/of last requested observation
+    :param target: The target CRS for sensors
+    :param epochS: time.mktime standardized timestamp of the beginning of obs
+    :param epochS: time.mktime standardized timestamp of the end of obs
+    :param i: Index of the first free layer
     """
-    i = layer + 1
+
     points = dict()
     freeCat = 1
 
-    timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
-    startTime = event_time.split('+')[0]
-    epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
-    endTime = event_time.split('+')[1].split('/')[1]
-    epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
+    for key, observation in parsed_obs.iteritems():
 
-    if flags['l']:
-        for key, observation in parsed_obs.iteritems():
+        tableName = standardize_table_name([options['output'], offering,
+                                            key])
+
+        data = json.loads(observation)
+        # get the transformation between source and target crs
+        crs = data['crs']
+        crs = int(crs['properties']['name'].split(':')[-1])
+        transform = get_transformation(crs, target)
+
+
+        intervals = {}
+        for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
+            intervals.update({secondsStamp: dict()})
+
+        emptyProcs = list()
+        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+
+        cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
+        for a in data['features']:
+            name = a['properties']['name']
+            empty = True
+
+            if name not in points.keys():
+                if new.is_open() is False:
+                    new.open('w')
+
+                points.update({name: freeCat})
+
+                # transform the geometry into the target crs
+                sx, sy, sz = a['geometry']['coordinates']
+                point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(
+                    sx, sy, sz))
+                point.Transform(transform)
+                coords = (point.GetX(), point.GetY(), point.GetZ())
+
+                new.write(Point(*coords), cat=freeCat)
+                freeCat += 1
+
+            for timestamp, value in a['properties'].iteritems():
+                if timestamp != 'name':
+                    if empty:
+                        empty = False
+                    observationStartTime = timestamp[:-4]
+                    secondsTimestamp = int(time.mktime(
+                        time.strptime(observationStartTime, timestampPattern)))
+                    for interval in intervals.keys():
+                        if secondsTimestamp >= interval \
+                                and secondsTimestamp < (
+                                            interval + secondsGranularity):
+                            if name in intervals[interval].keys():
+                                intervals[interval][name].append(float(value))
+                            else:
+                                timestamp2 = datetime.datetime.fromtimestamp(
+                                    interval).strftime('t%Y%m%dT%H%M%S')
+                                intervals[interval].update(
+                                    {name: [float(value)]})
+                                if (u'%s' % timestamp2, 'DOUBLE') not in cols:
+                                    cols.append((u'%s' % timestamp2, 'DOUBLE'))
+                            break
+
+            if empty:
+                emptyProcs.append(value)  # in value there is name of last proc
+
+        if len(cols) > 2000:
+            grass.warning(
+                'Recommended number of columns is less than 2000, you have '
+                'reached {}\nYou should set an event_time with a smaller range'
+                ' or recompile SQLite limits as described at '
+                'https://sqlite.org/limits.html'.format(len(cols)))
+
+        link = Link(
+            layer=i, name=tableName, table=tableName, key='cat',
+            database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
+            driver='sqlite')
+
+        if new.is_open():
+            new.close()
+
+        new.open('rw')
+        new.dblinks.add(link)
+        new.table = new.dblinks[i - 1].table()
+        new.table.create(cols)
+        inserts = dict()
+
+        # create attr tab inserts for empty procs
+        for emptyProc in emptyProcs:
+            insert = [None] * len(cols)
+            insert[0] = points[emptyProc]
+            insert[1] = emptyProc
+            inserts.update({emptyProc: insert})
+
+        # create attr tab inserts for procs with observations
+        for interval in intervals.keys():
+            if len(intervals[interval]) != 0:
+                timestamp = datetime.datetime.fromtimestamp(
+                    interval).strftime('t%Y%m%dT%H%M%S')
+
+                for name, values in intervals[interval].iteritems():
+                    if options['method'] == 'average':
+                        aggregatedValue = sum(values) / len(values)
+                    elif options['method'] == 'sum':
+                        aggregatedValue = sum(values)
+
+                    if name not in inserts.keys():
+                        insert = [None] * len(cols)
+                        insert[0] = points[name]
+                        insert[1] = name
+                        insert[cols.index((timestamp,
+                                           'DOUBLE'))] = aggregatedValue
+                        inserts.update({name: insert})
+                    else:
+                        inserts[name][cols.index((timestamp,
+                                                  'DOUBLE'))] = aggregatedValue
+
+        for insert in inserts.values():
+            new.table.insert(tuple(insert))
+            new.table.conn.commit()
+
+        # to avoid printing that crazy amount of messages
+        new.close(build=False)
+        run_command('v.build', quiet=True, map=options['output'])
+
+        i += 1
+
+def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
+                         target, obsProps, epochS, epochE, i):
+    """
+    Import vectors with layers representing output_offering_procedure
+    and rows representing timestamps
+    :param parsed_obs: Observations for a given offering in geoJSON format
+    :param offering: A collection of sensors used to conveniently group them up
+    :param new: Given vector map which should be updated with new layers
+    :param secondsGranularity: Granularity in seconds
+    :param target: The target CRS for sensors
+    :param obsProps: Oberved properties
+    :param epochS: time.mktime standardized timestamp of the beginning of obs
+    :param epochS: time.mktime standardized timestamp of the end of obs
+    :param i: Index of the first free layer
+    """
+
+    points = dict()
+    freeCat = 1
+
+    for propIndex in range(len(obsProps)):
+        obsProps[propIndex] = standardize_table_name([obsProps[propIndex]])
+
+    for key, observation in parsed_obs.iteritems():
+        print('Working on the observed property {}'.format(key))
+        key = standardize_table_name([key])
+
+        data = json.loads(observation)
+        # get the transformation between source and target crs
+        crs = data['crs']
+        crs = int(crs['properties']['name'].split(':')[-1])
+        transform = get_transformation(crs, target)
+
+        emptyProcs = list()
+        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+
+        cols = [(u'connection', 'INTEGER'), (u'timestamp', 'VARCHAR')]
+        for obsProp in obsProps:
+            cols.append((u'{}'.format(obsProp), 'DOUBLE'))
+
+        for a in data['features']:
+            name = a['properties']['name']
 
             tableName = standardize_table_name([options['output'], offering,
-                                                key])
-
-            data = json.loads(observation)
-            # get the transformation between source and target crs
-            crs = data['crs']
-            crs = int(crs['properties']['name'].split(':')[-1])
-            transform = get_transformation(crs, target)
-
+                                                name])
 
             intervals = {}
-            for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
+            for secondsStamp in range(epochS, epochE + 1,
+                                      secondsGranularity):
                 intervals.update({secondsStamp: dict()})
 
-            emptyProcs = list()
-            timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+            empty = True
 
-            cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
-            for a in data['features']:
-                name = a['properties']['name']
-                empty = True
+            if name not in points.keys():
+                if new.is_open() is False:
+                    new.open('w')
 
-                if name not in points.keys():
-                    if new.is_open() is False:
-                        new.open('w')
+                points.update({name: freeCat})
 
-                    points.update({name: freeCat})
+                # transform the geometry into the target crs
+                sx, sy, sz = a['geometry']['coordinates']
+                point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(
+                    sx, sy, sz))
+                point.Transform(transform)
+                coords = (point.GetX(), point.GetY(), point.GetZ())
 
-                    # transform the geometry into the target crs
-                    sx, sy, sz = a['geometry']['coordinates']
-                    point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(
-                        sx, sy, sz))
-                    point.Transform(transform)
-                    coords = (point.GetX(), point.GetY(), point.GetZ())
+                new.write(Point(*coords), cat=freeCat)
+                freeCat += 1
 
-                    new.write(Point(*coords), cat=freeCat)
-                    freeCat += 1
+            for timestamp, value in a['properties'].iteritems():
+                if timestamp != 'name':
+                    if empty:
+                        empty = False
+                    observationStartTime = timestamp[:-4]
+                    secondsTimestamp = int(time.mktime(
+                        time.strptime(observationStartTime, timestampPattern)))
+                    for interval in intervals.keys():
+                        if secondsTimestamp >= interval \
+                                and secondsTimestamp < (
+                                            interval + secondsGranularity):
+                            if name in intervals[interval].keys():
+                                intervals[interval][name].append(float(value))
+                            else:
+                                intervals[interval].update(
+                                    {name: [float(value)]})
+                            break
 
-                for timestamp, value in a['properties'].iteritems():
-                    if timestamp != 'name':
-                        if empty:
-                            empty = False
-                        observationStartTime = timestamp[:-4]
-                        secondsTimestamp = int(time.mktime(
-                            time.strptime(observationStartTime, timestampPattern)))
-                        for interval in intervals.keys():
-                            if secondsTimestamp >= interval \
-                                    and secondsTimestamp < (
-                                                interval + secondsGranularity):
-                                if name in intervals[interval].keys():
-                                    intervals[interval][name].append(float(value))
-                                else:
-                                    timestamp2 = datetime.datetime.fromtimestamp(
-                                        interval).strftime('t%Y%m%dT%H%M%S')
-                                    intervals[interval].update(
-                                        {name: [float(value)]})
-                                    if (u'%s' % timestamp2, 'DOUBLE') not in cols:
-                                        cols.append((u'%s' % timestamp2, 'DOUBLE'))
-                                break
-
-                if empty:
-                    emptyProcs.append(value)  # in value there is name of last proc
-
-            if len(cols) > 2000:
-                grass.warning(
-                    'Recommended number of columns is less than 2000, you have '
-                    'reached {}\nYou should set an event_time with a smaller range'
-                    ' or recompile SQLite limits as described at '
-                    'https://sqlite.org/limits.html'.format(len(cols)))
-
-            link = Link(
-                layer=i, name=tableName, table=tableName, key='cat',
-                database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
-                driver='sqlite')
+            if empty:
+                emptyProcs.append(value)  # in value there is name of last proc
 
             if new.is_open():
-                new.close()
-
+                # close without printing that crazy amount of messages
+                new.close(build=False)
+                run_command('v.build', quiet=True, map=options['output'])
             new.open('rw')
-            new.dblinks.add(link)
-            new.table = new.dblinks[i - 1].table()
-            new.table.create(cols)
+
+            yetExisting = False
+            if not new.dblinks.by_name(tableName):
+                link = Link(
+                    layer=i, name=tableName, table=tableName, key='connection',
+                    database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
+                    driver='sqlite')
+                new.dblinks.add(link)
+                new.table = new.dblinks[i - 1].table()
+                new.table.create(cols)
+            else:
+                yetExisting = True
+
             inserts = dict()
 
             # create attr tab inserts for empty procs
@@ -491,167 +650,42 @@ def full_maps(parsed_obs, offering, layer, new, secondsGranularity,
                 if len(intervals[interval]) != 0:
                     timestamp = datetime.datetime.fromtimestamp(
                         interval).strftime('t%Y%m%dT%H%M%S')
-
                     for name, values in intervals[interval].iteritems():
                         if options['method'] == 'average':
                             aggregatedValue = sum(values) / len(values)
                         elif options['method'] == 'sum':
                             aggregatedValue = sum(values)
 
-                        if name not in inserts.keys():
-                            insert = [None] * len(cols)
-                            insert[0] = points[name]
-                            insert[1] = name
-                            insert[cols.index((timestamp,
-                                               'DOUBLE'))] = aggregatedValue
-                            inserts.update({name: insert})
-                        else:
-                            inserts[name][cols.index((timestamp,
-                                                      'DOUBLE'))] = aggregatedValue
-
-            for insert in inserts.values():
-                new.table.insert(tuple(insert))
-                new.table.conn.commit()
-
-            new.close(build=False)
-            run_command('v.build', quiet=True, map=options['output'])
-
-            i += 1
-    else:
-        for propIndex in range(len(obsProps)):
-            obsProps[propIndex] = standardize_table_name([obsProps[propIndex]])
-
-        for key, observation in parsed_obs.iteritems():
-            print('Working on the observed property {}'.format(key))
-            key = standardize_table_name([key])
-
-            data = json.loads(observation)
-            # get the transformation between source and target crs
-            crs = data['crs']
-            crs = int(crs['properties']['name'].split(':')[-1])
-            transform = get_transformation(crs, target)
-
-            emptyProcs = list()
-            timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
-
-            cols = [(u'connection', 'INTEGER'), (u'timestamp', 'VARCHAR')]
-            for obsProp in obsProps:
-                cols.append((u'{}'.format(obsProp), 'DOUBLE'))
-
-            for a in data['features']:
-                name = a['properties']['name']
-
-                tableName = standardize_table_name([options['output'], offering, name])
-
-                intervals = {}
-                for secondsStamp in range(epochS, epochE + 1,
-                                          secondsGranularity):
-                    intervals.update({secondsStamp: dict()})
-
-                empty = True
-
-                if name not in points.keys():
-                    if new.is_open() is False:
-                        new.open('w')
-
-                    points.update({name: freeCat})
-
-                    # transform the geometry into the target crs
-                    sx, sy, sz = a['geometry']['coordinates']
-                    point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(
-                        sx, sy, sz))
-                    point.Transform(transform)
-                    coords = (point.GetX(), point.GetY(), point.GetZ())
-
-                    new.write(Point(*coords), cat=freeCat)
-                    freeCat += 1
-
-                for timestamp, value in a['properties'].iteritems():
-                    if timestamp != 'name':
-                        if empty:
-                            empty = False
-                        observationStartTime = timestamp[:-4]
-                        secondsTimestamp = int(time.mktime(
-                            time.strptime(observationStartTime, timestampPattern)))
-                        for interval in intervals.keys():
-                            if secondsTimestamp >= interval \
-                                    and secondsTimestamp < (
-                                                interval + secondsGranularity):
-                                if name in intervals[interval].keys():
-                                    intervals[interval][name].append(float(value))
-                                else:
-                                    intervals[interval].update(
-                                        {name: [float(value)]})
-                                break
-
-                if empty:
-                    emptyProcs.append(value)  # in value there is name of last proc
-
-                if new.is_open():
-                    # new.close()
-                    new.close(build=False)
-                    run_command('v.build', quiet=True, map=options['output'])
-                new.open('rw')
-
-                yetExisting = False
-                if not new.dblinks.by_name(tableName):
-                    link = Link(
-                        layer=i, name=tableName, table=tableName, key='connection',
-                        database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
-                        driver='sqlite')
-                    new.dblinks.add(link)
-                    new.table = new.dblinks[i - 1].table()
-                    new.table.create(cols)
-                else:
-                    yetExisting = True
-
-                inserts = dict()
-
-                # create attr tab inserts for empty procs
-                for emptyProc in emptyProcs:
-                    insert = [None] * len(cols)
-                    insert[0] = points[emptyProc]
-                    insert[1] = emptyProc
-                    inserts.update({emptyProc: insert})
-
-                # create attr tab inserts for procs with observations
-                for interval in intervals.keys():
-                    if len(intervals[interval]) != 0:
-                        timestamp = datetime.datetime.fromtimestamp(
-                            interval).strftime('t%Y%m%dT%H%M%S')
-                        for name, values in intervals[interval].iteritems():
-                            if options['method'] == 'average':
-                                aggregatedValue = sum(values) / len(values)
-                            elif options['method'] == 'sum':
-                                aggregatedValue = sum(values)
-
-                            if yetExisting:
-                                a = read_command(
-                                    'db.select',
-                                    sql='SELECT COUNT(*) FROM {} WHERE timestamp="{}"'.format(
-                                        tableName, timestamp
-                                    ))
-                                if a.split('\n')[1] != '0':
-                                    run_command(
-                                        'db.execute',
-                                        sql='UPDATE {} SET {}={} WHERE timestamp="{}";'.format(
+                        if yetExisting:
+                            a = read_command(
+                                'db.select',
+                                sql='SELECT COUNT(*) FROM '
+                                    '{} WHERE timestamp="{}"'.format(tableName,
+                                                                     timestamp)
+                            )
+                            if a.split('\n')[1] != '0':
+                                run_command(
+                                    'db.execute',
+                                    sql='UPDATE '
+                                        '{} SET {}={} WHERE timestamp="{}";'.format(
                                             tableName, key, aggregatedValue,
                                             timestamp))
-                                    continue
+                                continue
 
-                            # if name not in inserts.keys():
-                            insert = [None] * len(cols)
-                            insert[0] = points[name]
-                            insert[1] = timestamp
-                            insert[cols.index(
-                                (key, 'DOUBLE'))] = aggregatedValue
+                        # if name not in inserts.keys():
+                        insert = [None] * len(cols)
+                        insert[0] = points[name]
+                        insert[1] = timestamp
+                        insert[cols.index(
+                            (key, 'DOUBLE'))] = aggregatedValue
 
-                            new.table.insert(tuple(insert))
-                    new.table.conn.commit()
+                        new.table.insert(tuple(insert))
 
-                i += 1
+                new.table.conn.commit()
 
-            new.close()
+            i += 1
+
+        new.close()
 
 
 if __name__ == "__main__":
