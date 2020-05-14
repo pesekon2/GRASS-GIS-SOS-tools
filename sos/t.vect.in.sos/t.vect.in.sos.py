@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 ############################################################################
 #
@@ -183,7 +183,7 @@ def main():
                                        password=options['password'])
 
     if any(value is True and key in [
-      'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
+      'o', 'v', 'p', 't'] for key, value in flags.items()):
         get_description(service, options, flags)
 
     check_missing_params(options['offering'], options['output'])
@@ -225,7 +225,7 @@ def main():
                 for prop in observed_properties:
                     parsed_obs.update({prop: json2geojson(obs, prop)})
         except AttributeError:
-            if sys.version >= (3, 0):
+            if sys.version_info[0] >= 3:
                 sys.tracebacklimit = None
             else:
                 sys.tracebacklimit = 0
@@ -253,7 +253,7 @@ def create_maps(parsed_obs, offering, secondsGranularity, event_time):
     endTime = event_time.split('+')[1].split('/')[1]
     epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
-    for key, observation in parsed_obs.iteritems():
+    for key, observation in parsed_obs.items():
 
         run_command('g.message',
                     message='Creating vector maps for {}...'.format(key))
@@ -302,7 +302,7 @@ def create_maps(parsed_obs, offering, secondsGranularity, event_time):
                 new.write(Point(*a['geometry']['coordinates']))
                 freeCat += 1
 
-            for timestamp, value in a['properties'].iteritems():
+            for timestamp, value in a['properties'].items():
                 if timestamp != 'name':
                     observationStartTime = timestamp[:-4]
                     secondsTimestamp = int(time.mktime(
@@ -348,7 +348,7 @@ def create_maps(parsed_obs, offering, secondsGranularity, event_time):
                 i += 1
                 layersTimestamps.append(timestamp)
 
-                for name, values in intervals[interval].iteritems():
+                for name, values in intervals[interval].items():
                     if options['method'] == 'average':
                         aggregatedValue = sum(values) / len(values)
                     elif options['method'] == 'sum':

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 ############################################################################
 #
@@ -116,7 +116,7 @@ def rasterize(options, vectorMaps, stampedMaps, dbif, overwrite):
 
     rasterMaps = list()
 
-    for map, layers in vectorMaps.iteritems():
+    for map, layers in vectorMaps.items():
         for layer in layers:
             for mtimMap in stampedMaps:
                 if mtimMap.get_id().split('@')[0] == ':'.join([map, layer]):

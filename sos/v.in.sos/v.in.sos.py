@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 ############################################################################
 #
@@ -199,7 +199,7 @@ def main():
                                        password=options['password'])
 
     if any(value is True and key in [
-      'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
+      'o', 'v', 'p', 't'] for key, value in flags.items()):
         get_description(service, options, flags)
 
     check_missing_params(options['offering'], options['output'])
@@ -252,7 +252,7 @@ def main():
                     for prop in observed_properties:
                         parsed_obs.update({prop: json2geojson(obs, prop)})
             except AttributeError:
-                if sys.version >= (3, 0):
+                if sys.version_info[0] >= 3:
                     sys.tracebacklimit = None
                 else:
                     sys.tracebacklimit = 0
@@ -261,7 +261,7 @@ def main():
                     'could  you change the time parameter, observed '
                     'properties, procedures or offerings')
             except ValueError as e:
-                if sys.version >= (3, 0):
+                if sys.version_info[0] >= 3:
                     sys.tracebacklimit = None
                 else:
                     sys.tracebacklimit = 0
@@ -403,7 +403,7 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
     points = dict()
     freeCat = 1
 
-    for key, observation in parsed_obs.iteritems():
+    for key, observation in parsed_obs.items():
 
         tableName = standardize_table_name([options['output'], offering,
                                             key])
@@ -443,7 +443,7 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
                 new.write(Point(*coords), cat=freeCat)
                 freeCat += 1
 
-            for timestamp, value in a['properties'].iteritems():
+            for timestamp, value in a['properties'].items():
                 if timestamp != 'name':
                     if empty:
                         empty = False
@@ -502,7 +502,7 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
                 timestamp = datetime.datetime.fromtimestamp(
                     interval).strftime('t%Y%m%dT%H%M%S')
 
-                for name, values in intervals[interval].iteritems():
+                for name, values in intervals[interval].items():
                     if options['method'] == 'average':
                         aggregatedValue = sum(values) / len(values)
                     elif options['method'] == 'sum':
@@ -551,7 +551,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
     for propIndex in range(len(obsProps)):
         obsProps[propIndex] = standardize_table_name([obsProps[propIndex]])
 
-    for key, observation in parsed_obs.iteritems():
+    for key, observation in parsed_obs.items():
         print('Working on the observed property {}'.format(key))
         key = standardize_table_name([key])
 
@@ -597,7 +597,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
                 new.write(Point(*coords), cat=freeCat)
                 freeCat += 1
 
-            for timestamp, value in a['properties'].iteritems():
+            for timestamp, value in a['properties'].items():
                 if timestamp != 'name':
                     if empty:
                         empty = False
@@ -650,7 +650,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
                 if len(intervals[interval]) != 0:
                     timestamp = datetime.datetime.fromtimestamp(
                         interval).strftime('t%Y%m%dT%H%M%S')
-                    for name, values in intervals[interval].iteritems():
+                    for name, values in intervals[interval].items():
                         if options['method'] == 'average':
                             aggregatedValue = sum(values) / len(values)
                         elif options['method'] == 'sum':

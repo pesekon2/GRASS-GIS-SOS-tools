@@ -1,4 +1,4 @@
-#!  /usr/bin/env python
+#!  /usr/bin/env python3
 #
 ############################################################################
 #
@@ -201,7 +201,7 @@ def main():
                                        password=options['password'])
 
     if any(value is True and key in [
-      'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
+      'o', 'v', 'p', 't'] for key, value in flags.items()):
         get_description(service, options, flags)
 
     check_missing_params(options['offering'], options['output'])
@@ -270,7 +270,7 @@ def main():
                     for prop in observed_properties:
                         parsed_obs.update({prop: json2geojson(obs, prop)})
             except AttributeError:
-                if sys.version >= (3, 0):
+                if sys.version_info[0] >= 3:
                     sys.tracebacklimit = None
                 else:
                     sys.tracebacklimit = 0
@@ -279,7 +279,7 @@ def main():
                     'could  you change the time parameter, observed '
                     'properties, procedures or offerings')
             except ValueError as e:
-                if sys.version >= (3, 0):
+                if sys.version_info[0] >= 3:
                     sys.tracebacklimit = None
                 else:
                     sys.tracebacklimit = 0
@@ -397,7 +397,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
     endTime = event_time.split('+')[1].split('/')[1]
     epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
 
-    for key, observation in parsed_obs.iteritems():
+    for key, observation in parsed_obs.items():
         print('Creating raster maps for offering '
               '{}, observed property {}'.format(offering, key))
 
@@ -427,7 +427,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
             coords = (point.GetX(), point.GetY(), point.GetZ())
             geometries.update({name: coords})
 
-            for timestamp, value in a['properties'].iteritems():
+            for timestamp, value in a['properties'].items():
                 if timestamp != 'name':
                     observationStartTime = timestamp[:-4]
                     secondsTimestamp = int(time.mktime(
@@ -473,7 +473,7 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
                 e = None
                 w = None
 
-                for procedure, values in intervals[interval].iteritems():
+                for procedure, values in intervals[interval].items():
                     if new.exist() is False:
                         i = 1
                     else:

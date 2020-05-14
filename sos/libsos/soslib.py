@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 ############################################################################
@@ -246,7 +246,7 @@ def check_missing_params(offering, output):
     """
 
     if offering == '' or output == '':
-        if sys.version >= (3, 0):
+        if sys.version_info[0] >= 3:
             sys.tracebacklimit = None
         else:
             sys.tracebacklimit = 0

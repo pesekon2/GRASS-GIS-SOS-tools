@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 ############################################################################
 #
@@ -188,7 +188,7 @@ def cleanup():
 def main():
 
     fl = str()
-    for f, val in flags.iteritems():
+    for f, val in flags.items():
         if val is True:
             fl += f
 
@@ -197,7 +197,7 @@ def main():
     except:
         return 0
     if any(value is True and key in [
-           'o', 'v', 'p', 't'] for key, value in flags.iteritems()):
+           'o', 'v', 'p', 't'] for key, value in flags.items()):
         return 0
 
     service = SensorObservationService(options['url'],
