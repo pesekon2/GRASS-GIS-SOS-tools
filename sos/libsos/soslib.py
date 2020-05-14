@@ -261,7 +261,7 @@ def get_target_crs():
     """
 
     target_crs = grass.read_command('g.proj', flags='fj').rstrip(os.linesep)
-    target = osr.SpatialReference(target_crs)
+    target = osr.SpatialReference()
     target.ImportFromProj4(target_crs)
     if target == 'XY location (unprojected)':
         grass.fatal("Sorry, XY locations are not supported!")
