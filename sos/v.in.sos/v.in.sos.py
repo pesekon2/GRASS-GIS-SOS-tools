@@ -176,7 +176,7 @@ try:
 except ImportError as e:
     sys.stderr.write('Error importing internal libs. '
                      'Did you run the script from GRASS GIS?\n')
-    raise(e)
+    raise e
 
 path = get_lib_path(modname='sos', libname='libsos')
 if path is None:
@@ -207,11 +207,11 @@ def main():
     if options['granularity'] != '':
         import grass.temporal as tgis
         tgis.init()
-        secondsGranularity = int(tgis.gran_to_gran(options['granularity'],
-                                                   '1 second',
-                                                   True))
+        seconds_granularity = int(tgis.gran_to_gran(options['granularity'],
+                                                    '1 second',
+                                                    True))
     else:
-        secondsGranularity = 1
+        seconds_granularity = 1
 
     target = get_target_crs()
 
@@ -268,57 +268,60 @@ def main():
                 raise e
 
             create_maps(parsed_obs, off, layerscount, new,
-                        secondsGranularity, event_time, service, target,
+                        seconds_granularity, event_time, service, target,
                         observed_properties)
             layerscount += len(parsed_obs)
         return 0
 
 
-def create_maps(parsed_obs, offering, layer, new, secondsGranularity,
-                event_time, service, target, obsProps, procedures=None):
-    """
-    Add layers representing offerings and observed properties to the vector map
+def create_maps(parsed_obs, offering, layer, new, seconds_granularity,
+                event_time, service, target, obs_props, procedures=None):
+    """Add layers to the vector map.
+
+    Layers represent offerings and observed properties
+
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
     :param layer: Count of yet existing layers in vector map
     :param new: Given vector map which should be updated with new layers
-    :param secondsGranularity: Granularity in seconds
+    :param seconds_granularity: Granularity in seconds
     :param event_time: Timestamp of first/of last requested observation
     :param service: SensorObservationService() type object of request
     :param target: The target CRS for sensors
-    :param obsProps: Oberved properties
+    :param obs_props: Oberved properties
     :param procedures: List of queried procedures (observation providers)
     """
-
     if flags['s']:
         maps_without_observations(offering, new, service, procedures, target)
     else:
         i = layer + 1
-        timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
-        startTime = event_time.split('+')[0]
-        epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
-        endTime = event_time.split('+')[1].split('/')[1]
-        epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
+        timestamp_pattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
+        start_time = event_time.split('+')[0]
+        epoch_s = int(time.mktime(time.strptime(start_time,
+                                                timestamp_pattern)))
+        end_time = event_time.split('+')[1].split('/')[1]
+        epoch_e = int(time.mktime(time.strptime(end_time, timestamp_pattern)))
 
         if not flags['l']:
-            maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
-                                 target, obsProps, epochS, epochE, i)
+            maps_rows_timestamps(parsed_obs, offering, new,
+                                 seconds_granularity, target, obs_props,
+                                 epoch_s, epoch_e, i)
         else:
-            maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
-                              target, epochS, epochE, layer+1)
+            maps_rows_sensors(parsed_obs, offering, new, seconds_granularity,
+                              target, epoch_s, epoch_e, layer+1)
 
 
 def maps_without_observations(offering, new, service, procedures, target):
-    """
-    Import just vector points/sensors without their observations
+    """Import just vector points/sensors without their observations.
+
     :param offering: A collection of sensors used to conveniently group them up
     :param new: Given vector map which should be updated with new layers
     :param service: SensorObservationService() type object of request
     :param procedures: List of queried procedures (observation providors)
+    :param target:
     """
-
     points = dict()
-    freeCat = 1
+    free_cat = 1
 
     cols = [(u'cat', 'INTEGER PRIMARY KEY'),
             (u'name', 'varchar'),
@@ -335,7 +338,7 @@ def maps_without_observations(offering, new, service, procedures, target):
         new.open('w', tab_name=options['output'], tab_cols=cols)
     offs = [o.id for o in service.offerings]
     off_idx = offs.index(offering)
-    outputFormat = service.get_operation_by_name('DescribeSensor').parameters[
+    output_format = service.get_operation_by_name('DescribeSensor').parameters[
         'outputFormat']['values'][0]
 
     if procedures:
@@ -345,14 +348,14 @@ def maps_without_observations(offering, new, service, procedures, target):
 
     for proc in procedures:
         response = service.describe_sensor(procedure=proc,
-                                           outputFormat=outputFormat)
+                                           output_format=output_format)
         root = SensorML(response)
         system = root.members[0]
         name = system.name
         desc = system.description
         keywords = ','.join(system.keywords)
-        sensType = system.classifiers['Sensor Type'].value
-        sysType = system.classifiers['System Type'].value
+        sens_type = system.classifiers['Sensor Type'].value
+        sys_type = system.classifiers['System Type'].value
         crs = int(system.location[0].attrib['srsName'].split(':')[-1])
         coords = system.location[0][0].text.replace('\n', '')
         sx = float(coords.split(',')[0])
@@ -368,9 +371,9 @@ def maps_without_observations(offering, new, service, procedures, target):
         y = point.GetY()
         z = point.GetZ()
         if name not in points.keys():
-            points.update({name: freeCat})
+            points.update({name: free_cat})
             point = Point(x, y, z)
-            new.write(point, cat=freeCat, attrs=(
+            new.write(point, cat=free_cat, attrs=(
                       u'{}'.format(system.name.decode('utf-8')),
                       system.description,
                       ','.join(system.keywords),
@@ -380,32 +383,33 @@ def maps_without_observations(offering, new, service, procedures, target):
                       float(coords.split(',')[0]),
                       float(coords.split(',')[1]),
                       float(coords.split(',')[2]),))
-            freeCat += 1
+            free_cat += 1
     new.table.conn.commit()
     new.close(build=True)
 
 
-def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
-                      target, epochS, epochE, i):
-    """
-    Import vectors with layers representing output_offering_observedproperties
-    and rows representing procedures
+def maps_rows_sensors(parsed_obs, offering, new, seconds_granularity,
+                      target, epoch_s, epoch_e, i):
+    """Import vectors with rows representing procedures.
+
+    Layers represent output_offering_observedproperties and rows represent
+    procedures
+
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
     :param new: Given vector map which should be updated with new layers
-    :param secondsGranularity: Granularity in seconds
+    :param seconds_granularity: Granularity in seconds
     :param target: The target CRS for sensors
-    :param epochS: time.mktime standardized timestamp of the beginning of obs
-    :param epochS: time.mktime standardized timestamp of the end of obs
+    :param epoch_s: time.mktime standardized timestamp of the beginning of obs
+    :param epoch_e: time.mktime standardized timestamp of the end of obs
     :param i: Index of the first free layer
     """
-
     points = dict()
-    freeCat = 1
+    free_cat = 1
 
     for key, observation in parsed_obs.items():
 
-        tableName = standardize_table_name([options['output'], offering,
+        table_name = standardize_table_name([options['output'], offering,
                                             key])
 
         data = json.loads(observation)
@@ -414,13 +418,12 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
         crs = int(crs['properties']['name'].split(':')[-1])
         transform = get_transformation(crs, target)
 
-
         intervals = {}
-        for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
-            intervals.update({secondsStamp: dict()})
+        for seconds_stamp in range(epoch_s, epoch_e + 1, seconds_granularity):
+            intervals.update({seconds_stamp: dict()})
 
-        emptyProcs = list()
-        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+        empty_procs = list()
+        timestamp_pattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
         for a in data['features']:
@@ -431,7 +434,7 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
                 if new.is_open() is False:
                     new.open('w')
 
-                points.update({name: freeCat})
+                points.update({name: free_cat})
 
                 # transform the geometry into the target crs
                 sx, sy, sz = a['geometry']['coordinates']
@@ -440,20 +443,20 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
                 point.Transform(transform)
                 coords = (point.GetX(), point.GetY(), point.GetZ())
 
-                new.write(Point(*coords), cat=freeCat)
-                freeCat += 1
+                new.write(Point(*coords), cat=free_cat)
+                free_cat += 1
 
             for timestamp, value in a['properties'].items():
                 if timestamp != 'name':
                     if empty:
                         empty = False
-                    observationStartTime = timestamp[:-4]
-                    secondsTimestamp = int(time.mktime(
-                        time.strptime(observationStartTime, timestampPattern)))
+                    observationstart_time = timestamp[:-4]
+                    seconds_timestamp = int(time.mktime(
+                        time.strptime(observationstart_time,
+                                      timestamp_pattern)))
                     for interval in intervals.keys():
-                        if secondsTimestamp >= interval \
-                                and secondsTimestamp < (
-                                            interval + secondsGranularity):
+                        if interval <= seconds_timestamp < (
+                                interval + seconds_granularity):
                             if name in intervals[interval].keys():
                                 intervals[interval][name].append(float(value))
                             else:
@@ -466,7 +469,8 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
                             break
 
             if empty:
-                emptyProcs.append(value)  # in value there is name of last proc
+                # in value, there is name of the last proc
+                empty_procs.append(value)
 
         if len(cols) > 2000:
             grass.warning(
@@ -476,7 +480,7 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
                 'https://sqlite.org/limits.html'.format(len(cols)))
 
         link = Link(
-            layer=i, name=tableName, table=tableName, key='cat',
+            layer=i, name=table_name, table=table_name, key='cat',
             database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
             driver='sqlite')
 
@@ -490,7 +494,7 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
         inserts = dict()
 
         # create attr tab inserts for empty procs
-        for emptyProc in emptyProcs:
+        for emptyProc in empty_procs:
             insert = [None] * len(cols)
             insert[0] = points[emptyProc]
             insert[1] = emptyProc
@@ -504,20 +508,20 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
 
                 for name, values in intervals[interval].items():
                     if options['method'] == 'average':
-                        aggregatedValue = sum(values) / len(values)
+                        aggregated_value = sum(values) / len(values)
                     elif options['method'] == 'sum':
-                        aggregatedValue = sum(values)
+                        aggregated_value = sum(values)
 
                     if name not in inserts.keys():
                         insert = [None] * len(cols)
                         insert[0] = points[name]
                         insert[1] = name
                         insert[cols.index((timestamp,
-                                           'DOUBLE'))] = aggregatedValue
+                                           'DOUBLE'))] = aggregated_value
                         inserts.update({name: insert})
                     else:
-                        inserts[name][cols.index((timestamp,
-                                                  'DOUBLE'))] = aggregatedValue
+                        inserts[name][cols.index(
+                            (timestamp, 'DOUBLE'))] = aggregated_value
 
         for insert in inserts.values():
             new.table.insert(tuple(insert))
@@ -529,27 +533,30 @@ def maps_rows_sensors(parsed_obs, offering, new, secondsGranularity,
 
         i += 1
 
-def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
-                         target, obsProps, epochS, epochE, i):
-    """
-    Import vectors with layers representing output_offering_procedure
-    and rows representing timestamps
+
+def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
+                         target, obs_props, epoch_s, epoch_e, i):
+    """Import vectors with rows representing timestamps.
+
+    Layers represent output_offering_procedure and rows representing timestamps
+
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
     :param new: Given vector map which should be updated with new layers
-    :param secondsGranularity: Granularity in seconds
+    :param seconds_granularity: Granularity in seconds
     :param target: The target CRS for sensors
-    :param obsProps: Oberved properties
-    :param epochS: time.mktime standardized timestamp of the beginning of obs
-    :param epochS: time.mktime standardized timestamp of the end of obs
+    :param obs_props: Oberved properties
+    :param epoch_s: time.mktime standardized timestamp of the beginning of obs
+    :param epoch_e: time.mktime standardized timestamp of the end of obs
     :param i: Index of the first free layer
     """
+    db = '$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db'
 
     points = dict()
-    freeCat = 1
+    free_cat = 1
 
-    for propIndex in range(len(obsProps)):
-        obsProps[propIndex] = standardize_table_name([obsProps[propIndex]])
+    for propIndex in range(len(obs_props)):
+        obs_props[propIndex] = standardize_table_name([obs_props[propIndex]])
 
     for key, observation in parsed_obs.items():
         print('Working on the observed property {}'.format(key))
@@ -561,23 +568,23 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
         crs = int(crs['properties']['name'].split(':')[-1])
         transform = get_transformation(crs, target)
 
-        emptyProcs = list()
-        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+        empty_procs = list()
+        timestamp_pattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
 
         cols = [(u'connection', 'INTEGER'), (u'timestamp', 'VARCHAR')]
-        for obsProp in obsProps:
+        for obsProp in obs_props:
             cols.append((u'{}'.format(obsProp), 'DOUBLE'))
 
         for a in data['features']:
             name = a['properties']['name']
 
-            tableName = standardize_table_name([options['output'], offering,
+            table_name = standardize_table_name([options['output'], offering,
                                                 name])
 
             intervals = {}
-            for secondsStamp in range(epochS, epochE + 1,
-                                      secondsGranularity):
-                intervals.update({secondsStamp: dict()})
+            for seconds_stamp in range(epoch_s, epoch_e + 1,
+                                       seconds_granularity):
+                intervals.update({seconds_stamp: dict()})
 
             empty = True
 
@@ -585,7 +592,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
                 if new.is_open() is False:
                     new.open('w')
 
-                points.update({name: freeCat})
+                points.update({name: free_cat})
 
                 # transform the geometry into the target crs
                 sx, sy, sz = a['geometry']['coordinates']
@@ -594,20 +601,20 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
                 point.Transform(transform)
                 coords = (point.GetX(), point.GetY(), point.GetZ())
 
-                new.write(Point(*coords), cat=freeCat)
-                freeCat += 1
+                new.write(Point(*coords), cat=free_cat)
+                free_cat += 1
 
             for timestamp, value in a['properties'].items():
                 if timestamp != 'name':
                     if empty:
                         empty = False
-                    observationStartTime = timestamp[:-4]
-                    secondsTimestamp = int(time.mktime(
-                        time.strptime(observationStartTime, timestampPattern)))
+                    observationstart_time = timestamp[:-4]
+                    seconds_timestamp = int(time.mktime(
+                        time.strptime(observationstart_time,
+                                      timestamp_pattern)))
                     for interval in intervals.keys():
-                        if secondsTimestamp >= interval \
-                                and secondsTimestamp < (
-                                            interval + secondsGranularity):
+                        if interval <= seconds_timestamp < (
+                                interval + seconds_granularity):
                             if name in intervals[interval].keys():
                                 intervals[interval][name].append(float(value))
                             else:
@@ -616,7 +623,8 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
                             break
 
             if empty:
-                emptyProcs.append(value)  # in value there is name of last proc
+                # in value, there is name of the last proc
+                empty_procs.append(value)
 
             if new.is_open():
                 # close without printing that crazy amount of messages
@@ -624,22 +632,23 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
                 run_command('v.build', quiet=True, map=options['output'])
             new.open('rw')
 
-            yetExisting = False
-            if not new.dblinks.by_name(tableName):
+            yet_existing = False
+            if not new.dblinks.by_name(table_name):
                 link = Link(
-                    layer=i, name=tableName, table=tableName, key='connection',
-                    database='$GISDBASE/$LOCATION_NAME/$MAPSET/sqlite/sqlite.db',
+                    layer=i, name=table_name, table=table_name,
+                    key='connection',
+                    database=db,
                     driver='sqlite')
                 new.dblinks.add(link)
                 new.table = new.dblinks[i - 1].table()
                 new.table.create(cols)
             else:
-                yetExisting = True
+                yet_existing = True
 
             inserts = dict()
 
             # create attr tab inserts for empty procs
-            for emptyProc in emptyProcs:
+            for emptyProc in empty_procs:
                 insert = [None] * len(cols)
                 insert[0] = points[emptyProc]
                 insert[1] = emptyProc
@@ -652,23 +661,23 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
                         interval).strftime('t%Y%m%dT%H%M%S')
                     for name, values in intervals[interval].items():
                         if options['method'] == 'average':
-                            aggregatedValue = sum(values) / len(values)
+                            aggregated_value = sum(values) / len(values)
                         elif options['method'] == 'sum':
-                            aggregatedValue = sum(values)
+                            aggregated_value = sum(values)
 
-                        if yetExisting:
+                        if yet_existing:
                             a = read_command(
                                 'db.select',
-                                sql='SELECT COUNT(*) FROM '
-                                    '{} WHERE timestamp="{}"'.format(tableName,
-                                                                     timestamp)
+                                sql='SELECT COUNT(*) FROM {} WHERE '
+                                    'timestamp="{}"'.format(table_name,
+                                                            timestamp)
                             )
                             if a.split('\n')[1] != '0':
                                 run_command(
                                     'db.execute',
-                                    sql='UPDATE '
-                                        '{} SET {}={} WHERE timestamp="{}";'.format(
-                                            tableName, key, aggregatedValue,
+                                    sql='UPDATE {} SET {}={} WHERE '
+                                        'timestamp="{}";'.format(
+                                            table_name, key, aggregated_value,
                                             timestamp))
                                 continue
 
@@ -677,7 +686,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, secondsGranularity,
                         insert[0] = points[name]
                         insert[1] = timestamp
                         insert[cols.index(
-                            (key, 'DOUBLE'))] = aggregatedValue
+                            (key, 'DOUBLE'))] = aggregated_value
 
                         new.table.insert(tuple(insert))
 

@@ -180,7 +180,7 @@ except ImportError as e:
     sys.stderr.write(
         'Error importing internal libs. Did you run the script from GRASS '
         'GIS?\n')
-    raise(e)
+    raise e
 
 path = get_lib_path(modname='sos', libname='libsos')
 if path is None:
@@ -209,11 +209,11 @@ def main():
     if options['granularity'] != '':
         import grass.temporal as tgis
         tgis.init()
-        secondsGranularity = int(tgis.gran_to_gran(options['granularity'],
-                                                   '1 second',
-                                                   True))
+        seconds_granularity = int(tgis.gran_to_gran(options['granularity'],
+                                                    '1 second',
+                                                    True))
     else:
-        secondsGranularity = 1
+        seconds_granularity = 1
 
     if options['resolution'] == '':
         a = grass.read_command('g.region', flags='gf')
@@ -285,45 +285,48 @@ def main():
                     sys.tracebacklimit = 0
                 raise e
 
-            create_maps(parsed_obs, off, secondsGranularity, resolution,
+            create_maps(parsed_obs, off, seconds_granularity, resolution,
                         event_time, service, target)
 
     return 0
 
 
-def create_maps(parsed_obs, offering, secondsGranularity, resolution,
+def create_maps(parsed_obs, offering, seconds_granularity, resolution,
                 event_time, service, target, procedures=None):
-    """
-    Create raster maps representing offerings, observed props and procedures
+    """Create raster maps.
+
+    Maps represent offerings, observed props and procedures
+
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
-    :param secondsGranularity: Granularity in seconds
+    :param seconds_granularity: Granularity in seconds
     :param resolution: 2D grid resolution for rasterization
     :param event_time: Timestamp of first/of last requested observation
     :param service: SensorObservationService() type object of request
+    :param target: 
     :param procedures: List of queried procedures (observation providors)
     """
-
     if flags['s']:
         maps_without_observations(offering, resolution, service, procedures,
                                   target)
     else:
-        full_maps(parsed_obs, offering, secondsGranularity,
+        full_maps(parsed_obs, offering, seconds_granularity,
                   resolution, event_time, target)
 
 
 def maps_without_observations(offering, resolution, service, procedures,
                               target):
-    """
+    """Import just pixels/sensors without their observations.
+
     :param offering: A collection of sensors used to conveniently group them up
     :param resolution: 2D grid resolution for rasterization
     :param service: SensorObservationService() type object of request
     :param procedures: List of queried procedures (observation providors)
+    :param target:
     """
-
     offs = [o.id for o in service.offerings]
     off_idx = offs.index(offering)
-    outputFormat = service.get_operation_by_name('DescribeSensor').parameters[
+    output_format = service.get_operation_by_name('DescribeSensor').parameters[
         'outputFormat']['values'][0]
 
     if procedures:
@@ -331,16 +334,16 @@ def maps_without_observations(offering, resolution, service, procedures,
     else:
         procedures = service.offerings[off_idx].procedures
 
-    tempFilePath = grass.tempfile()
+    tempfile_path = grass.tempfile()
     n = None
     s = None
     e = None
     w = None
 
-    with open(tempFilePath, 'w') as tempFile:
+    with open(tempfile_path, 'w') as tempFile:
         for proc in procedures:
             response = service.describe_sensor(procedure=proc,
-                                               outputFormat=outputFormat)
+                                               output_format=output_format)
             root = SensorML(response)
             system = root.members[0]
             crs = int(system.location[0].attrib['srsName'].split(':')[-1])
@@ -375,27 +378,29 @@ def maps_without_observations(offering, resolution, service, procedures,
 
     run_command('g.region', n=n, s=s, w=w, e=e, res=resolution)
     run_command('r.in.xyz',
-                input=tempFilePath,
+                input=tempfile_path,
                 separator='space',
                 output='{}_{}'.format(options['output'], offering))
 
 
-def full_maps(parsed_obs, offering, secondsGranularity, resolution,
+def full_maps(parsed_obs, offering, seconds_granularity, resolution,
               event_time, target):
-    """
-    Create raster maps representing offerings, observed props and procedures
+    """Create raster maps.
+
+    Maps represent represent offerings, observed props and procedures
+
     :param parsed_obs: Observations for a given offering in geoJSON format
     :param offering: A collection of sensors used to conveniently group them up
-    :param secondsGranularity: Granularity in seconds
+    :param seconds_granularity: Granularity in seconds
     :param resolution: 2D grid resolution for rasterization
     :param event_time: Timestamp of first/of last requested observation
+    :param target:
     """
-
-    timestampPattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
-    startTime = event_time.split('+')[0]
-    epochS = int(time.mktime(time.strptime(startTime, timestampPattern)))
-    endTime = event_time.split('+')[1].split('/')[1]
-    epochE = int(time.mktime(time.strptime(endTime, timestampPattern)))
+    timestamp_pattern = '%Y-%m-%dT%H:%M:%S'  # TODO: Timezone
+    start_time = event_time.split('+')[0]
+    epoch_s = int(time.mktime(time.strptime(start_time, timestamp_pattern)))
+    end_time = event_time.split('+')[1].split('/')[1]
+    epoch_e = int(time.mktime(time.strptime(end_time, timestamp_pattern)))
 
     for key, observation in parsed_obs.items():
         print('Creating raster maps for offering '
@@ -411,10 +416,10 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
 
         geometries = dict()
         intervals = {}
-        for secondsStamp in range(epochS, epochE + 1, secondsGranularity):
+        for secondsStamp in range(epoch_s, epoch_e + 1, seconds_granularity):
             intervals.update({secondsStamp: dict()})
 
-        timestampPattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+        timestamp_pattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
 
         for a in data['features']:
             name = a['properties']['name']
@@ -429,13 +434,13 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
 
             for timestamp, value in a['properties'].items():
                 if timestamp != 'name':
-                    observationStartTime = timestamp[:-4]
-                    secondsTimestamp = int(time.mktime(
-                        time.strptime(observationStartTime, timestampPattern)))
+                    observation_start_time = timestamp[:-4]
+                    seconds_timestamp = int(time.mktime(
+                        time.strptime(observation_start_time,
+                                      timestamp_pattern)))
                     for interval in intervals.keys():
-                        if secondsTimestamp >= interval \
-                                and secondsTimestamp < (
-                                            interval + secondsGranularity):
+                        if interval <= seconds_timestamp < (
+                                    interval + seconds_granularity):
                             if name in intervals[interval].keys():
                                 intervals[interval][name].append(float(value))
                             else:
@@ -448,25 +453,25 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
                 timestamp = datetime.datetime.fromtimestamp(
                     interval).strftime('t%Y%m%dT%H%M%S')
 
-                tableName = '{}_{}_{}_{}'.format(options['output'],
-                                                 offering, key,
-                                                 timestamp)
-                if ':' in tableName:
-                    tableName = '_'.join(tableName.split(':'))
-                if '-' in tableName:
-                    tableName = '_'.join(tableName.split('-'))
-                if '.' in tableName:
-                    tableName = '_'.join(tableName.split('.'))
+                table_name = '{}_{}_{}_{}'.format(options['output'],
+                                                  offering, key,
+                                                  timestamp)
+                if ':' in table_name:
+                    table_name = '_'.join(table_name.split(':'))
+                if '-' in table_name:
+                    table_name = '_'.join(table_name.split('-'))
+                if '.' in table_name:
+                    table_name = '_'.join(table_name.split('.'))
 
-                new = VectorTopo(tableName)
+                new = VectorTopo(table_name)
                 if overwrite() is True:
                     try:
                         new.remove()
                     except:
                         pass
 
-                new.open(mode='w', layer=1, tab_name=tableName,
-                         link_name=tableName, tab_cols=cols, overwrite=True)
+                new.open(mode='w', layer=1, tab_name=table_name,
+                         link_name=table_name, tab_cols=cols, overwrite=True)
                 i = 0
                 n = None
                 s = None
@@ -509,18 +514,18 @@ def full_maps(parsed_obs, offering, secondsGranularity, resolution,
                 new.table.conn.commit()
 
                 new.close(build=False)
-                run_command('v.build', quiet=True, map=tableName)
+                run_command('v.build', quiet=True, map=table_name)
 
                 if options['bbox'] == '':
                     run_command('g.region', n=n, s=s, w=w, e=e, res=resolution)
 
-                run_command('v.to.rast', input=tableName, output=tableName,
+                run_command('v.to.rast', input=table_name, output=table_name,
                             use='attr', attribute_column='value', layer=1,
                             type='point', quiet=True)
 
                 if flags['k'] is False:
                     run_command('g.remove', 'f', type='vector',
-                                name=tableName, quiet=True)
+                                name=table_name, quiet=True)
 
 
 if __name__ == "__main__":

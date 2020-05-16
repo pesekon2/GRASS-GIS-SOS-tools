@@ -171,7 +171,7 @@ try:
 except ImportError as e:
     sys.stderr.write('Error importing internal libs. '
                      'Did you run the script from GRASS GIS?\n')
-    raise(e)
+    raise e
 
 path = get_lib_path(modname='sos', libname='libsos')
 if path is None:
@@ -186,7 +186,6 @@ def cleanup():
 
 
 def main():
-
     fl = str()
     for f, val in flags.items():
         if val is True:
@@ -209,62 +208,62 @@ def main():
         procedure, observed_properties, event_time = handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
-        for observedProperty in observed_properties:
-            mapName = '{}_{}_{}'.format(options['output'], off,
-                                        observedProperty)
-            if ':' in mapName:
-                mapName = '_'.join(mapName.split(':'))
-            if '-' in mapName:
-                mapName = '_'.join(mapName.split('-'))
-            if '.' in mapName:
-                mapName = '_'.join(mapName.split('.'))
+        for observed_property in observed_properties:
+            map_name = '{}_{}_{}'.format(options['output'], off,
+                                         observed_property)
+            if ':' in map_name:
+                map_name = '_'.join(map_name.split(':'))
+            if '-' in map_name:
+                map_name = '_'.join(map_name.split('-'))
+            if '.' in map_name:
+                map_name = '_'.join(map_name.split('.'))
 
-            mapsListFile = get_maps(mapName)
-            create_temporal(mapsListFile, mapName)
+            maps_list_file = get_maps(map_name)
+            create_temporal(maps_list_file, map_name)
 
     return 0
 
 
-def get_maps(mapName):
-    """
-    Get the list of maps created during r.in.sos
-    :param mapName: Prefix of raster maps names (name without timestamp)
-    :return tmpFile: Temporary file containing the intermediate raster maps
-    """
+def get_maps(map_name):
+    """Get the list of maps created during r.in.sos.
 
-    tmpFile = grass.tempfile()
+    :param map_name: Prefix of raster maps names (name without timestamp)
+    :return tmp_file: Temporary file containing the intermediate raster maps
+    """
+    tmp_file = grass.tempfile()
     run_command('g.list', type='raster',
-                pattern='{}_*'.format(mapName),
-                output=tmpFile, overwrite=True)
+                pattern='{}_*'.format(map_name),
+                output=tmp_file, overwrite=True)
 
-    return tmpFile
+    return tmp_file
 
 
-def create_temporal(mapsListFile, mapName):
+def create_temporal(maps_list_file, map_name):
+    """Create strds from given raster maps.
+
+    Every raster map is timestamped
+
+    :param maps_list_file: Temporary file containing names of raster maps
+    :param map_name: Name for the output strds
     """
-    Create strds from given raster maps where every raster map is timestamped
-    :param mapsListFile: Temporary file containing names of raster maps
-    :param mapName: Name for the output strds
-    """
-
     run_command('t.create',
-                output=mapName,
+                output=map_name,
                 type='strds',
                 title='Dataset for offering {} and observed '
-                      'property {}'.format(mapName.split('_')[1],
-                                           '_'.join(mapName.split('_')[2:])),
+                      'property {}'.format(map_name.split('_')[1],
+                                           '_'.join(map_name.split('_')[2:])),
                 description='Raster space time dataset')
 
-    with open(mapsListFile, 'r') as maps:
-        for rasterMap in maps.readlines():
-            a = rasterMap.split('t')[-1]
-            mapTimestamp = '{}-{}-{} {}:{}'.format(a[0:4], a[4:6], a[6:8],
-                                                   a[9:11], a[11:13])
+    with open(maps_list_file, 'r') as maps:
+        for raster_map in maps.readlines():
+            a = raster_map.split('t')[-1]
+            map_timestamp = '{}-{}-{} {}:{}'.format(a[0:4], a[4:6], a[6:8],
+                                                    a[9:11], a[11:13])
             run_command('t.register',
                         type='raster',
-                        input=mapName,
-                        maps='{}'.format(rasterMap.strip()),
-                        start=mapTimestamp,
+                        input=map_name,
+                        maps='{}'.format(raster_map.strip()),
+                        start=map_timestamp,
                         quiet=True)
 
 

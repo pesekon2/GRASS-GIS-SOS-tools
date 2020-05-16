@@ -80,8 +80,8 @@ def main(options, flags):
 
 
 def get_maps(stvds):
-    """
-    Get vector maps registered in an input stvds
+    """Get vector maps registered in an input stvds.
+
     :param stvds: Spatio temporal vector dataset intended to convert
     :return maps: dictionary in format {vector map: [layers of vector map]}
     """
@@ -104,8 +104,8 @@ def get_maps(stvds):
 
 
 def rasterize(options, vectorMaps, stampedMaps, dbif, overwrite):
-    """
-    Create raster maps from all vector maps and return a list of their names
+    """Rasterize all vector maps and return a list of their names.
+
     :param options: Named arguments given when calling module
     :param vectorMaps: Names of vector maps intended to be converted to rasters
     :param stampedMaps: List of vector maps as objects (with timestamps)
