@@ -374,7 +374,7 @@ def maps_without_observations(offering, new, service, procedures, target):
             points.update({name: free_cat})
             point = Point(x, y, z)
             new.write(point, cat=free_cat, attrs=(
-                      u'{}'.format(system.name.decode('utf-8')),
+                      u'{}'.format(system.name),
                       system.description,
                       ','.join(system.keywords),
                       system.classifiers['Sensor Type'].value,
