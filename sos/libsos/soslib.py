@@ -56,6 +56,7 @@ def xml2geojson(xml_file, observed_property, import_empty=False):
         separator = ','
         current_index = 1
         include = True
+        wanted_index = None
 
         for item in child.iter():
             if 'name' in item.tag and name_found is False:
@@ -72,6 +73,8 @@ def xml2geojson(xml_file, observed_property, import_empty=False):
                 token_separator = item.attrib['tokenSeparator']
                 block_separator = item.attrib['blockSeparator']
             elif 'values' in item.tag:
+                if wanted_index is None:
+                    continue
                 if not item.text:
                     if import_empty:
                         values = 0
