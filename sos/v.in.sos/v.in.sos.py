@@ -404,10 +404,10 @@ def maps_rows_sensors(parsed_obs, offering, new, seconds_granularity,
     :param epoch_e: time.mktime standardized timestamp of the end of obs
     :param i: Index of the first free layer
     """
-    points = dict()
     free_cat = 1
 
     for key, observation in parsed_obs.items():
+        points = {}
 
         table_name = standardize_table_name([options['output'], offering,
                                             key])
@@ -424,16 +424,23 @@ def maps_rows_sensors(parsed_obs, offering, new, seconds_granularity,
 
         empty_procs = list()
         timestamp_pattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+        coords_dict = {}
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR')]
+
+        if new.is_open() is True:
+            # close without printing that crazy amount of messages
+            new.close(build=False)
+            run_command('v.build', quiet=True, map=options['output'])
+            new.open('rw')
+        else:
+            new.open('w')
+
         for a in data['features']:
             name = a['properties']['name']
             empty = True
 
             if name not in points.keys():
-                if new.is_open() is False:
-                    new.open('w')
-
                 points.update({name: free_cat})
 
                 # transform the geometry into the target crs
@@ -443,7 +450,7 @@ def maps_rows_sensors(parsed_obs, offering, new, seconds_granularity,
                 point.Transform(transform)
                 coords = (point.GetX(), point.GetY(), point.GetZ())
 
-                new.write(Point(*coords), cat=free_cat)
+                coords_dict.update({free_cat: coords})
                 free_cat += 1
 
             for timestamp, value in a['properties'].items():
@@ -493,6 +500,13 @@ def maps_rows_sensors(parsed_obs, offering, new, seconds_granularity,
         new.table.create(cols)
         inserts = dict()
 
+        new.close(build=False)
+        run_command('v.build', quiet=True, map=options['output'])
+        new.open('rw', layer=i)
+
+        for cat, coords in coords_dict.items():
+            new.write(Point(*coords), cat=cat)
+
         # create attr tab inserts for empty procs
         for emptyProc in empty_procs:
             insert = [None] * len(cols)
@@ -527,11 +541,11 @@ def maps_rows_sensors(parsed_obs, offering, new, seconds_granularity,
             new.table.insert(tuple(insert))
             new.table.conn.commit()
 
-        # to avoid printing that crazy amount of messages
-        new.close(build=False)
-        run_command('v.build', quiet=True, map=options['output'])
-
         i += 1
+
+    # to avoid printing that crazy amount of messages
+    new.close(build=False)
+    run_command('v.build', quiet=True, map=options['output'])
 
 
 def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
