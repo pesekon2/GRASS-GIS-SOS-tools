@@ -576,6 +576,14 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
         for obsProp in obs_props:
             cols.append((u'{}'.format(obsProp), 'DOUBLE'))
 
+        if new.is_open() is True:
+            # close without printing that crazy amount of messages
+            new.close(build=False)
+            run_command('v.build', quiet=True, map=options['output'])
+            new.open('rw')
+        else:
+            new.open('w')
+
         for a in data['features']:
             name = a['properties']['name']
 
@@ -588,22 +596,6 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
                 intervals.update({seconds_stamp: dict()})
 
             empty = True
-
-            if name not in points.keys():
-                if new.is_open() is False:
-                    new.open('w')
-
-                points.update({name: free_cat})
-
-                # transform the geometry into the target crs
-                sx, sy, sz = a['geometry']['coordinates']
-                point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(
-                    sx, sy, sz))
-                point.Transform(transform)
-                coords = (point.GetX(), point.GetY(), point.GetZ())
-
-                new.write(Point(*coords), cat=free_cat)
-                free_cat += 1
 
             for timestamp, value in a['properties'].items():
                 if timestamp != 'name':
@@ -645,6 +637,24 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
                 new.table.create(cols)
             else:
                 yet_existing = True
+
+            # open the right layer
+            new.close(build=False)
+            run_command('v.build', quiet=True, map=options['output'])
+            new.open('rw', layer=cur_layer)
+
+            if name not in points.keys():
+                points.update({name: free_cat})
+
+                # transform the geometry into the target crs
+                sx, sy, sz = a['geometry']['coordinates']
+                point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(
+                    sx, sy, sz))
+                point.Transform(transform)
+                coords = (point.GetX(), point.GetY(), point.GetZ())
+
+                new.write(Point(*coords), cat=free_cat)
+                free_cat += 1
 
             inserts = dict()
 
@@ -695,7 +705,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
 
             cur_layer += 1
 
-        new.close()
+    new.close()
 
 
 if __name__ == "__main__":
