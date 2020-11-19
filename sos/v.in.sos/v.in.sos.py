@@ -570,6 +570,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
 
         empty_procs = list()
         timestamp_pattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
+        cur_layer = i
 
         cols = [(u'connection', 'INTEGER'), (u'timestamp', 'VARCHAR')]
         for obsProp in obs_props:
@@ -635,12 +636,12 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
             yet_existing = False
             if not new.dblinks.by_name(table_name):
                 link = Link(
-                    layer=i, name=table_name, table=table_name,
+                    layer=cur_layer, name=table_name, table=table_name,
                     key='connection',
                     database=db,
                     driver='sqlite')
                 new.dblinks.add(link)
-                new.table = new.dblinks[i - 1].table()
+                new.table = new.dblinks[cur_layer - 1].table()
                 new.table.create(cols)
             else:
                 yet_existing = True
@@ -692,7 +693,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
 
                 new.table.conn.commit()
 
-            i += 1
+            cur_layer += 1
 
         new.close()
 
