@@ -91,7 +91,7 @@ def xml2geojson(xml_file, observed_property, import_empty=False):
                     for character in [':', '-', '+']:
                         time_stamp = ''.join(time_stamp.split(character))
 
-                    data.update({timeStamp: values.split(
+                    data.update({time_stamp: values.split(
                         token_separator)[wanted_index]})
             elif 'location' in item.tag:
                 point = list(item)[0]
