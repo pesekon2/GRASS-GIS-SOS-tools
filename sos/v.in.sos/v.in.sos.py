@@ -167,6 +167,7 @@ import datetime
 try:
     from owslib.sos import SensorObservationService
     from owslib.swe.sensor.sml import SensorML
+    from osgeo import ogr
     from grass.script import parser, run_command, read_command
     from grass.script import core as grass
     from grass.pygrass.vector import VectorTopo
