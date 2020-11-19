@@ -168,7 +168,6 @@ path = get_lib_path(modname='sos', libname='libsos')
 if path is None:
     grass.script.fatal('Not able to find the sos library directory.')
 sys.path.append(path)
-from soslib import *
 
 
 def cleanup():
@@ -185,9 +184,9 @@ def main():
 
     if any(value is True and key in [
       'o', 'v', 'p', 't'] for key, value in flags.items()):
-        get_description(service, options, flags)
+        soslib.get_description(service, options, flags)
 
-    check_missing_params(options['offering'], options['output'])
+    soslib.check_missing_params(options['offering'], options['output'])
 
     if options['granularity'] != '':
         import grass.temporal as tgis
@@ -200,9 +199,10 @@ def main():
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
-        procedure, observed_properties, event_time = handle_not_given_options(
+        out = soslib.handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
+        procedure, observed_properties, event_time = out
 
         try:
             obs = service.get_observation(
@@ -221,10 +221,10 @@ def main():
             if options['version'] in ['1.0.0', '1.0'] and str(
               options['response_format']) == 'text/xml;subtype="om/1.0.0"':
                 for prop in observed_properties:
-                    parsed_obs.update({prop: xml2geojson(obs, prop)})
+                    parsed_obs.update({prop: soslib.xml2geojson(obs, prop)})
             elif str(options['response_format']) == 'application/json':
                 for prop in observed_properties:
-                    parsed_obs.update({prop: json2geojson(obs, prop)})
+                    parsed_obs.update({prop: soslib.json2geojson(obs, prop)})
         except AttributeError:
             if sys.version_info[0] >= 3:
                 sys.tracebacklimit = None
@@ -395,4 +395,11 @@ def create_temporal(vector_map, layers_count, layers_timestamps):
 
 if __name__ == "__main__":
     options, flags = parser()
+
+    try:
+        import soslib
+    except ImportError:
+        grass.fatal("Cannot import Python module soslib containing "
+                    "SOS-connected functions necessary to run this module.")
+
     main()

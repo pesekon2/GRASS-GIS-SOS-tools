@@ -177,8 +177,6 @@ path = get_lib_path(modname='sos', libname='libsos')
 if path is None:
     grass.script.fatal('Not able to find the sos library directory.')
 sys.path.append(path)
-from soslib import xml2geojson, json2geojson
-from soslib import handle_not_given_options
 
 
 def cleanup():
@@ -205,9 +203,11 @@ def main():
                                        password=options['password'])
 
     for off in options['offering'].split(','):
-        procedure, observed_properties, event_time = handle_not_given_options(
+        out = soslib.handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
+        procedure, observed_properties, event_time = out
+
         for observed_property in observed_properties:
             map_name = '{}_{}_{}'.format(options['output'], off,
                                          observed_property)
@@ -269,4 +269,11 @@ def create_temporal(maps_list_file, map_name):
 
 if __name__ == "__main__":
     options, flags = parser()
+
+    try:
+        import soslib
+    except ImportError:
+        grass.fatal("Cannot import Python module soslib containing "
+                    "SOS-connected functions necessary to run this module.")
+
     main()

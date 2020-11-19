@@ -186,7 +186,6 @@ path = get_lib_path(modname='sos', libname='libsos')
 if path is None:
     grass.script.fatal('Not able to find the sos library directory.')
 sys.path.append(path)
-from soslib import *
 
 
 def cleanup():
@@ -202,9 +201,9 @@ def main():
 
     if any(value is True and key in [
       'o', 'v', 'p', 't'] for key, value in flags.items()):
-        get_description(service, options, flags)
+        soslib.get_description(service, options, flags)
 
-    check_missing_params(options['offering'], options['output'])
+    soslib.check_missing_params(options['offering'], options['output'])
 
     if options['granularity'] != '':
         import grass.temporal as tgis
@@ -236,13 +235,14 @@ def main():
                       ' be automatically based on procedure geometries for '
                       'every map.')
 
-    target = get_target_crs()
+    target = soslib.get_target_crs()
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
-        procedure, observed_properties, event_time = handle_not_given_options(
+        out = soslib.handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
+        procedure, observed_properties, event_time = out
 
         if flags['s']:
             create_maps(_, off, _, resolution, _, service, target, procedure)
@@ -264,11 +264,12 @@ def main():
                 if options['version'] in ['1.0.0', '1.0'] and \
                   options['response_format'] == 'text/xml;subtype="om/1.0.0"':
                     for prop in observed_properties:
-                        parsed_obs.update({prop: xml2geojson(obs,
-                                                             prop)})
+                        parsed_obs.update(
+                            {prop: soslib.xml2geojson(obs, prop)})
                 elif str(options['response_format']) == 'application/json':
                     for prop in observed_properties:
-                        parsed_obs.update({prop: json2geojson(obs, prop)})
+                        parsed_obs.update(
+                            {prop: soslib.json2geojson(obs, prop)})
             except AttributeError:
                 if sys.version_info[0] >= 3:
                     sys.tracebacklimit = None
@@ -303,7 +304,7 @@ def create_maps(parsed_obs, offering, seconds_granularity, resolution,
     :param resolution: 2D grid resolution for rasterization
     :param event_time: Timestamp of first/of last requested observation
     :param service: SensorObservationService() type object of request
-    :param target: 
+    :param target:
     :param procedures: List of queried procedures (observation providors)
     """
     if flags['s']:
@@ -351,7 +352,7 @@ def maps_without_observations(offering, resolution, service, procedures,
             sx = float(coords.split(',')[0])
             sy = float(coords.split(',')[1])
             sz = float(coords.split(',')[2])
-            transform = get_transformation(crs, target)
+            transform = soslib.get_transformation(crs, target)
             point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx,
                                                                         sy,
                                                                         sz))
@@ -409,7 +410,7 @@ def full_maps(parsed_obs, offering, seconds_granularity, resolution,
         data = json.loads(observation)
         crs = data['crs']
         crs = int(crs['properties']['name'].split(':')[-1])
-        transform = get_transformation(crs, target)
+        transform = soslib.get_transformation(crs, target)
 
         cols = [(u'cat', 'INTEGER PRIMARY KEY'), (u'name', 'VARCHAR'),
                 (u'value', 'DOUBLE')]
@@ -530,4 +531,11 @@ def full_maps(parsed_obs, offering, seconds_granularity, resolution,
 
 if __name__ == "__main__":
     options, flags = parser()
+
+    try:
+        import soslib
+    except ImportError:
+        grass.fatal("Cannot import Python module soslib containing "
+                    "SOS-connected functions necessary to run this module.")
+
     main()

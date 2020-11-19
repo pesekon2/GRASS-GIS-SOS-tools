@@ -182,7 +182,6 @@ path = get_lib_path(modname='sos', libname='libsos')
 if path is None:
     grass.script.fatal('Not able to find the sos library directory.')
 sys.path.append(path)
-from soslib import *
 
 
 def cleanup():
@@ -200,9 +199,9 @@ def main():
 
     if any(value is True and key in [
       'o', 'v', 'p', 't'] for key, value in flags.items()):
-        get_description(service, options, flags)
+        soslib.get_description(service, options, flags)
 
-    check_missing_params(options['offering'], options['output'])
+    soslib.check_missing_params(options['offering'], options['output'])
 
     if options['granularity'] != '':
         import grass.temporal as tgis
@@ -213,16 +212,17 @@ def main():
     else:
         seconds_granularity = 1
 
-    target = get_target_crs()
+    target = soslib.get_target_crs()
 
     run_command('g.remove', 'f', type='vector', name=options['output'])
     new = VectorTopo(options['output'])
 
     for off in options['offering'].split(','):
         # TODO: Find better way than iteration (at best OWSLib upgrade)
-        procedure, observed_properties, event_time = handle_not_given_options(
+        out = soslib.handle_not_given_options(
             service, off, options['procedure'], options['observed_properties'],
             options['event_time'])
+        procedure, observed_properties, event_time = out
 
         if flags['s']:
             create_maps(_, off, _, new, _, _, service, target, _, procedure)
@@ -245,12 +245,12 @@ def main():
                 if options['version'] in ['1.0.0', '1.0'] and str(
                   options['response_format']) == 'text/xml;subtype="om/1.0.0"':
                     for prop in observed_properties:
-                        parsed_obs.update({prop: xml2geojson(obs,
-                                                             prop,
-                                                             flags['i'])})
+                        parsed_obs.update(
+                            {prop: soslib.xml2geojson(obs, prop, flags['i'])})
                 elif str(options['response_format']) == 'application/json':
                     for prop in observed_properties:
-                        parsed_obs.update({prop: json2geojson(obs, prop)})
+                        parsed_obs.update(
+                            {prop: soslib.json2geojson(obs, prop)})
             except AttributeError:
                 if sys.version_info[0] >= 3:
                     sys.tracebacklimit = None
@@ -362,10 +362,9 @@ def maps_without_observations(offering, new, service, procedures, target):
         sy = float(coords.split(',')[1])
         sz = float(coords.split(',')[2])
         # Set source projection from SOS
-        transform = get_transformation(crs, target)
-        point = ogr.CreateGeometryFromWkt('POINT ({} {} {})'.format(sx,
-                                                                    sy,
-                                                                    sz))
+        transform = soslib.get_transformation(crs, target)
+        point = ogr.CreateGeometryFromWkt(
+            'POINT ({} {} {})'.format(sx, sy, sz))
         point.Transform(transform)
         x = point.GetX()
         y = point.GetY()
@@ -409,14 +408,14 @@ def maps_rows_sensors(parsed_obs, offering, new, seconds_granularity,
     for key, observation in parsed_obs.items():
         points = {}
 
-        table_name = standardize_table_name([options['output'], offering,
-                                            key])
+        table_name = soslib.standardize_table_name(
+            [options['output'], offering, key])
 
         data = json.loads(observation)
         # get the transformation between source and target crs
         crs = data['crs']
         crs = int(crs['properties']['name'].split(':')[-1])
-        transform = get_transformation(crs, target)
+        transform = soslib.get_transformation(crs, target)
 
         intervals = {}
         for seconds_stamp in range(epoch_s, epoch_e + 1, seconds_granularity):
@@ -570,17 +569,18 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
     free_cat = 1
 
     for propIndex in range(len(obs_props)):
-        obs_props[propIndex] = standardize_table_name([obs_props[propIndex]])
+        obs_props[propIndex] = soslib.standardize_table_name(
+            [obs_props[propIndex]])
 
     for key, observation in parsed_obs.items():
         print('Working on the observed property {}'.format(key))
-        key = standardize_table_name([key])
+        key = soslib.standardize_table_name([key])
 
         data = json.loads(observation)
         # get the transformation between source and target crs
         crs = data['crs']
         crs = int(crs['properties']['name'].split(':')[-1])
-        transform = get_transformation(crs, target)
+        transform = soslib.get_transformation(crs, target)
 
         empty_procs = list()
         timestamp_pattern = 't%Y%m%dT%H%M%S'  # TODO: Timezone
@@ -601,8 +601,8 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
         for a in data['features']:
             name = a['properties']['name']
 
-            table_name = standardize_table_name([options['output'], offering,
-                                                name])
+            table_name = soslib.standardize_table_name(
+                [options['output'], offering, name])
 
             intervals = {}
             for seconds_stamp in range(epoch_s, epoch_e + 1,
@@ -723,5 +723,13 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
 
 
 if __name__ == "__main__":
+
     options, flags = parser()
+
+    try:
+        import soslib
+    except ImportError:
+        grass.fatal("Cannot import Python module soslib containing "
+                    "SOS-connected functions necessary to run this module.")
+
     main()
