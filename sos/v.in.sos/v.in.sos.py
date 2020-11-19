@@ -627,7 +627,7 @@ def maps_rows_timestamps(parsed_obs, offering, new, seconds_granularity,
                 # in value, there is name of the last proc
                 empty_procs.append(value)
 
-            if new.is_open():
+            if new.is_open() is True:
                 # close without printing that crazy amount of messages
                 new.close(build=False)
                 run_command('v.build', quiet=True, map=options['output'])
