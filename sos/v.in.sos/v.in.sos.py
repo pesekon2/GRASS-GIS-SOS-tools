@@ -348,7 +348,7 @@ def maps_without_observations(offering, new, service, procedures, target):
 
     for proc in procedures:
         response = service.describe_sensor(procedure=proc,
-                                           output_format=output_format)
+                                           outputFormat=output_format)
         root = SensorML(response)
         system = root.members[0]
         name = system.name
